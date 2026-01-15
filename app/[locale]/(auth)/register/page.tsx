@@ -16,6 +16,7 @@ import { ButtonLoading } from '@/components/ui/button-loading';
 import { toast } from 'sonner';
 import { LocaleLink } from '@/components/locale';
 import { useLocale } from '@/hooks/use-locale';
+import { SocialLoginProvider } from '@/components/social-login-provider';
 
 export default function RegisterPage() {
 	const { t } = useLocale();
@@ -232,6 +233,7 @@ export default function RegisterPage() {
 						>
 							{t('Register')}
 						</ButtonLoading>
+						<SocialLoginProvider />
 						<p className="text-center text-sm text-muted-foreground">
 							{t('Has already an account?')}{' '}
 							<LocaleLink

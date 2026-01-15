@@ -53,5 +53,10 @@
     "Password updated successfully": "Senha atualizada com sucesso",
     "Log out": "Sair",
     "Main items": "Itens principais",
-    "Settings": "Configurações"
+    "Settings": "Configurações",
+    "Or continue with": "Ou continue com",
+    "Google": "Google",
+    "Apple": "Apple",
+    "Loading...": "Carregando...",
+    "Failed to sign in": "Falha ao entrar"
 }

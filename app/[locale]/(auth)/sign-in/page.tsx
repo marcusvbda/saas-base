@@ -17,6 +17,7 @@ import { InputPassword } from '@/components/ui/input-password';
 import { toast } from 'sonner';
 import { LocaleLink } from '@/components/locale';
 import { useLocale } from '@/hooks/use-locale';
+import { SocialLoginProvider } from '@/components/social-login-provider';
 
 const FragmentContent = () => {
 	useEffect(() => {
@@ -133,6 +134,7 @@ const FragmentContent = () => {
 						>
 							{t('Login')}
 						</ButtonLoading>
+						<SocialLoginProvider />
 						<p className="text-center text-sm text-muted-foreground">
 							{t(`Don't have an account?`)}{' '}
 							<LocaleLink
