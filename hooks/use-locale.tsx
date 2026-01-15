@@ -26,6 +26,7 @@ export const useLocale = () => {
 
 	return {
 		t: translate,
+		locale: locale,
 		router: {
 			...router,
 			push: push,

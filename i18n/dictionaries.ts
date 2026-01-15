@@ -4,7 +4,7 @@ export const defaultLocale = "en";
 const dictionaries = {
     pt: () => import('./dictionaries/pt.json').then((module) => module.default),
 }
-export type Locale = keyof typeof dictionaries
+export type Locale = "en" | "pt";
 
 export const hasLocale = (locale: string): locale is Locale =>
     locale in dictionaries

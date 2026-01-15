@@ -32,5 +32,7 @@ System core
 
 - [x] admin template ui starter
 - [x] social login
+- [x] language selector
+- [x] theme selector
 - [ ] Profile edit
 - [ ] settings

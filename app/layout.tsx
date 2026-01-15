@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';
 import { QueryProvider } from '@/providers/query.provider';
+import { ThemeProvider } from '@/providers/theme.provider';
+import { cookies } from 'next/headers';
 
 const geistSans = Geist({
 	variable: '--font-geist-sans',
@@ -24,13 +26,28 @@ export default async function RootLayout({
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	const cookieStore = await cookies();
+	const themeCookie = cookieStore.get('theme')?.value;
+	const theme =
+		themeCookie === 'dark' || themeCookie === 'light'
+			? themeCookie
+			: themeCookie === 'system'
+				? undefined
+				: undefined;
+
 	return (
-		<html lang="en" suppressHydrationWarning>
+		<html
+			lang="en"
+			suppressHydrationWarning
+			className={theme === 'dark' ? 'dark' : ''}
+		>
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
-				<QueryProvider>{children}</QueryProvider>
-				<Toaster position="top-center" richColors />
+				<ThemeProvider>
+					<QueryProvider>{children}</QueryProvider>
+					<Toaster position="top-center" richColors />
+				</ThemeProvider>
 			</body>
 		</html>
 	);

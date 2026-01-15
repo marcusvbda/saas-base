@@ -1,5 +1,5 @@
 'use client';
-import { useSystem } from '@/providers/system.provider';
+import { useLocale } from '@/hooks/use-locale';
 import Link, { LinkProps } from 'next/link';
 import { useMemo } from 'react';
 
@@ -13,7 +13,7 @@ export const LocaleLink = ({
 	className?: string;
 	children?: React.ReactNode;
 } & LinkProps) => {
-	const { locale } = useSystem();
+	const { locale } = useLocale();
 	const localizedHref = useMemo(() => `/${locale}${href}`, [locale, href]);
 	return (
 		<Link
