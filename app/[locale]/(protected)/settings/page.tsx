@@ -7,8 +7,9 @@ import SettingsSidebar from '@/components/settings-sidebar';
 import AccountSettings from '@/components/account-settings';
 import { Card, CardContent } from '@/components/ui/card';
 import { useQueryState } from '@/hooks/use-query-state';
+import CredentialSettings from '@/components/credential-settings';
 
-export const SettingsSections = ['account', 'example'];
+export const SettingsSections = ['account', 'credentials'];
 export type ISettingsSection = (typeof SettingsSections)[number];
 
 export default function SettingsPage() {
@@ -42,10 +43,10 @@ export default function SettingsPage() {
 						<Activity mode={activeSection === 'account' ? 'visible' : 'hidden'}>
 							<AccountSettings />
 						</Activity>
-						<Activity mode={activeSection === 'example' ? 'visible' : 'hidden'}>
-							<div className="text-muted-foreground">
-								Example settings coming soon...
-							</div>
+						<Activity
+							mode={activeSection === 'credentials' ? 'visible' : 'hidden'}
+						>
+							<CredentialSettings />
 						</Activity>
 					</CardContent>
 				</Card>

@@ -13,11 +13,10 @@ export default class UserService {
             await resend.emails.send({
                 from: process.env.RESEND_FROM_EMAIL!,
                 to: email,
-                subject: "Verifique seu email",
+                subject: "Verify your email",
                 html: `URL : ${url}`,
             });
         } catch (error) {
-            console.error("Erro ao enviar email de verificação:", error);
             throw error;
         }
     }
@@ -32,7 +31,7 @@ export default class UserService {
         await resend.emails.send({
             from: process.env.RESEND_FROM_EMAIL!,
             to: user.email,
-            subject: "Redefinir sua senha",
+            subject: "Reset your password",
             html: `URL : ${url}`,
         });
     }
@@ -54,6 +53,14 @@ export default class UserService {
         return true;
     }
 
+    async updatePassword(userId: string, password: string) {
+        const user = await this.repository.findById(userId);
+        if (!user) return false;
+        const hashedPassword = await hashPassword(password);
+        await this.repository.updatePassword(userId, hashedPassword);
+        return true;
+    }
+
     async verifyEmailByToken(token: string) {
         const payload = jwt.verify(
             token,
@@ -61,5 +68,9 @@ export default class UserService {
         );
         const user = await this.repository.findByEmail(payload.email);
         await this.repository.verifyUserById(user.id);
+    }
+
+    async updateUserData(userId: string, data: any) {
+        return await this.repository.updateUserData(userId, data);
     }
 }

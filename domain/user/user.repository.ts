@@ -44,4 +44,8 @@ export default class UserRepository {
     async verifyUserById(userId: string) {
         await this.db.execute("UPDATE `user` SET `emailVerified` = TRUE WHERE `id` = :userId", { userId });
     }
+
+    async updateUserData(userId: string, data: any) {
+        await this.db.execute("UPDATE `user` SET `name` = :name WHERE `id` = :userId", { ...data, userId });
+    }
 }

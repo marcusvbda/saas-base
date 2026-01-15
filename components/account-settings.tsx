@@ -1,35 +1,68 @@
 'use client';
 
-import { useState } from 'react';
+import { FormEvent, useState, useTransition } from 'react';
 import {
 	Field,
 	FieldContent,
 	FieldDescription,
+	FieldError,
 	FieldGroup,
 	FieldLabel,
 	FieldTitle,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { InputPassword } from '@/components/ui/input-password';
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useSession } from '@/providers/session.provider';
 import { useLocale } from '@/hooks/use-locale';
+import { ButtonLoading } from './ui/button-loading';
+import z from 'zod';
+import { getValidatedParams } from '@/helpers/common';
+import { toast } from 'sonner';
 
 export default function AccountSettings() {
 	const { t } = useLocale();
-	const { session } = useSession();
-	const [name, setName] = useState(session?.user.name || '');
-	const [newPassword, setNewPassword] = useState('');
-	const [confirmPassword, setConfirmPassword] = useState('');
+	const { session, setSession } = useSession();
+	const formSchema = z.object({
+		name: z.string().min(1, t('{field} is required', { field: t('Name') })),
+	});
+	const [isPending, startTransition] = useTransition();
+	const [form, setForm] = useState<any>({
+		name: session?.user.name || '',
+		errors: null,
+	});
 
-	const handleUpdateProfile = () => {
-		// TODO: Implement profile update
-		console.log('Update profile:', { name });
+	const handleUpdateProfile = (e: FormEvent) => {
+		e.preventDefault();
+		startTransition(async () => {
+			const validatedFields: any = await getValidatedParams(form, formSchema);
+			if (!validatedFields.success) {
+				return setForm({
+					...form,
+					errors: validatedFields.data,
+				});
+			}
+
+			await fetch('/api/auth/profile/data-update', {
+				method: 'PUT',
+				body: JSON.stringify({ name: validatedFields.data.name }),
+			});
+
+			toast.success(
+				t('{resource} updated successfully', { resource: t('Profile') })
+			);
+
+			setSession({
+				...session,
+				user: {
+					...session?.user,
+					name: validatedFields.data.name,
+				},
+			});
+		});
 	};
 
 	return (
-		<div className="space-y-6">
+		<form onSubmit={handleUpdateProfile} className="space-y-6">
 			<FieldGroup>
 				<Field>
 					<FieldLabel>
@@ -56,9 +89,13 @@ export default function AccountSettings() {
 						<Input
 							type="text"
 							placeholder={t('Enter your name')}
-							value={name}
-							onChange={(e) => setName(e.target.value)}
+							value={form.name}
+							onChange={(e) => setForm({ ...form, name: e.target.value })}
+							aria-invalid={form.errors?.name ? 'true' : undefined}
 						/>
+						<FieldError className="text-red-500 mt-2">
+							{form.errors?.name}
+						</FieldError>
 						<FieldDescription>
 							{t(
 								'This is your display name. It can be your real name or a pseudonym'
@@ -67,56 +104,15 @@ export default function AccountSettings() {
 						</FieldDescription>
 					</FieldContent>
 				</Field>
-
-				<Separator />
-
-				<div className="space-y-4">
-					<div className="space-y-4">
-						<Field>
-							<FieldLabel>
-								<FieldTitle>New Password</FieldTitle>
-							</FieldLabel>
-							<FieldContent>
-								<InputPassword
-									value={newPassword}
-									onChange={(e) => setNewPassword(e.target.value)}
-									placeholder="Enter new password"
-								/>
-								<FieldDescription>
-									Your password must be at least 6 characters long.
-								</FieldDescription>
-							</FieldContent>
-						</Field>
-
-						<Field>
-							<FieldLabel>
-								<FieldTitle>Confirm Password</FieldTitle>
-							</FieldLabel>
-							<FieldContent>
-								<InputPassword
-									value={confirmPassword}
-									onChange={(e) => setConfirmPassword(e.target.value)}
-									placeholder="Confirm new password"
-								/>
-								<FieldDescription>
-									Please confirm your new password.
-								</FieldDescription>
-							</FieldContent>
-						</Field>
-
-						<div className="flex gap-2">
-							<Button>Update password</Button>
-							<Button variant="outline">Cancel</Button>
-						</div>
-					</div>
-				</div>
 			</FieldGroup>
 
 			<Separator />
 
 			<div className="flex justify-end">
-				<Button onClick={handleUpdateProfile}>Update profile</Button>
+				<ButtonLoading isLoading={isPending} type="submit">
+					{t('Update profile')}
+				</ButtonLoading>
 			</div>
-		</div>
+		</form>
 	);
 }

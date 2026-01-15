@@ -17,7 +17,7 @@
     "Name": "Nome",
     "Password Confirmation": "Confirmação de senha",
     "Passwords do not match": "As senhas não coincidem",
-    "Name is required": "Nome é obrigatório",
+    "{field} is required": "{field} é obrigatório",
     "Register": "Registrar",
     "Has already an account": "Já tem uma conta?",
     "Sign in": "Entrar",
@@ -66,5 +66,14 @@
     "Manage your account settings and set e-mail preferences.": "Gerencie suas configurações de conta e defina preferências de e-mail.",
     "Enter your name": "Digite seu nome",
     "Your email address cannot be changed": "Seu endereço de email não pode ser alterado",
-    "This is your display name. It can be your real name or a pseudonym": "Este é seu nome de exibição. Pode ser seu nome real ou um pseudônimo"
+    "This is your display name. It can be your real name or a pseudonym": "Este é seu nome de exibição. Pode ser seu nome real ou um pseudônimo",
+    "Update profile": "Atualizar perfil",
+    "{resource} updated successfully": "{resource} atualizado com sucesso",
+    "{resource} must be at least {quantity} characters long": "{resource} deve ter pelo menos {quantity} caracteres",
+    "Enter new password": "Digite uma nova senha",
+    "Confirm new password": "Confirmar nova senha",
+    "Please confirm your new password": "Por favor, confirme sua nova senha",
+    "Update password": "Atualizar senha",
+    "Credentials": "Credenciais",
+    "Account": "Conta"
 }

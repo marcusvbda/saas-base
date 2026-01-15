@@ -1,28 +1,31 @@
 'use client';
 
-import { IconPalette, IconShield } from '@tabler/icons-react';
+import { IconShield } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './ui/card';
 import { ISettingsSection } from '@/app/[locale]/(protected)/settings/page';
+import { LockIcon } from 'lucide-react';
+import { useLocale } from '@/hooks/use-locale';
 
 interface SettingsSidebarProps {
 	activeSection: ISettingsSection;
 	onSectionChange: (section: ISettingsSection) => void;
 }
 
-const sections: Array<{
-	id: ISettingsSection;
-	label: string;
-	icon: React.ComponentType<{ className?: string }>;
-}> = [
-	{ id: 'account', label: 'Account', icon: IconShield },
-	{ id: 'example', label: 'Example', icon: IconPalette },
-];
-
 export default function SettingsSidebar({
 	activeSection,
 	onSectionChange,
 }: SettingsSidebarProps) {
+	const { t } = useLocale();
+	const sections: Array<{
+		id: ISettingsSection;
+		label: string;
+		icon: React.ComponentType<{ className?: string }>;
+	}> = [
+		{ id: 'account', label: t('Account'), icon: IconShield },
+		{ id: 'credentials', label: t('Credentials'), icon: LockIcon },
+	];
+
 	return (
 		<Card className="w-full space-y-1">
 			<CardContent>
