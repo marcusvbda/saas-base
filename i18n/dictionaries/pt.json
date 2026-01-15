@@ -1,8 +1,8 @@
 {
     "Login": "Entrar",
-    "Don't have an account?": "Não tem uma conta?",
+    "Don't have an account": "Não tem uma conta?",
     "Create account": "Criar conta",
-    "Forgot your password?": "Esqueceu sua senha?",
+    "Forgot your password": "Esqueceu sua senha?",
     "Password": "Senha",
     "Email": "Email",
     "Invalid email": "Email inválido",
@@ -19,7 +19,7 @@
     "Passwords do not match": "As senhas não coincidem",
     "Name is required": "Nome é obrigatório",
     "Register": "Registrar",
-    "Has already an account?": "Já tem uma conta?",
+    "Has already an account": "Já tem uma conta?",
     "Sign in": "Entrar",
     "Check your email for verification": "Verifique seu email para verificação",
     "Create your account": "Crie sua conta",
@@ -57,8 +57,14 @@
     "Or continue with": "Ou continue com",
     "Google": "Google",
     "Apple": "Apple",
-    "Loading...": "Carregando...",
+    "Loading": "Carregando",
     "Failed to sign in": "Falha ao entrar",
     "English": "Inglês",
-    "Portuguese (BR)": "Português (BR)"
+    "Portuguese": "Português",
+    "Dashboard": "Dashboard",
+    "Welcome to the dashboard": "Bem-vindo ao dashboard",
+    "Manage your account settings and set e-mail preferences.": "Gerencie suas configurações de conta e defina preferências de e-mail.",
+    "Enter your name": "Digite seu nome",
+    "Your email address cannot be changed": "Seu endereço de email não pode ser alterado",
+    "This is your display name. It can be your real name or a pseudonym": "Este é seu nome de exibição. Pode ser seu nome real ou um pseudônimo"
 }

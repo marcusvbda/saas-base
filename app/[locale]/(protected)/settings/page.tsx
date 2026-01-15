@@ -1,18 +1,55 @@
 'use client';
 
+import { Activity } from 'react';
 import { useLocale } from '@/hooks/use-locale';
 import BasePage from '../base-page';
+import SettingsSidebar from '@/components/settings-sidebar';
+import AccountSettings from '@/components/account-settings';
+import { Card, CardContent } from '@/components/ui/card';
+import { useQueryState } from '@/hooks/use-query-state';
+
+export const SettingsSections = ['account', 'example'];
+export type ISettingsSection = (typeof SettingsSections)[number];
 
 export default function SettingsPage() {
 	const { t } = useLocale();
+	const [activeSection, setActiveSection] = useQueryState(
+		'section',
+		SettingsSections,
+		'account'
+	);
+
 	return (
 		<BasePage
 			breadcrumbItems={[
 				{ title: 'Dashboard', url: '/' },
 				{ title: t('Settings') },
 			]}
+			title={t('Settings')}
+			description={t(
+				'Manage your account settings and set e-mail preferences.'
+			)}
 		>
-			{t('Settings')}
+			<div className="gap-6 w-full grid grid-cols-1 md:grid-cols-[1fr_4fr]">
+				<SettingsSidebar
+					activeSection={activeSection as ISettingsSection}
+					onSectionChange={
+						setActiveSection as (section: ISettingsSection) => void
+					}
+				/>
+				<Card className="w-full space-y-1">
+					<CardContent>
+						<Activity mode={activeSection === 'account' ? 'visible' : 'hidden'}>
+							<AccountSettings />
+						</Activity>
+						<Activity mode={activeSection === 'example' ? 'visible' : 'hidden'}>
+							<div className="text-muted-foreground">
+								Example settings coming soon...
+							</div>
+						</Activity>
+					</CardContent>
+				</Card>
+			</div>
 		</BasePage>
 	);
 }

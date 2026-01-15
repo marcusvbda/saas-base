@@ -42,9 +42,9 @@ export function NavUserHeader() {
 					<UserAvatar />
 				</DropdownMenuLabel>
 				<DropdownMenuSeparator />
-				<DropdownMenuItem>
+				<DropdownMenuItem onClick={() => router.push('/settings')}>
 					<IconSettings className="mr-2 h-4 w-4" />
-					<span>Settings</span>
+					<span>{t('Settings')}</span>
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onClick={() => router.push('/sign-in')}>

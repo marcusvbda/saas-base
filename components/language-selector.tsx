@@ -23,7 +23,7 @@ export function LanguageSelector() {
 
 	const localeLabels: Record<Locale, string> = {
 		en: t('English'),
-		pt: t('Portuguese (BR)'),
+		pt: t('Portuguese') + ' (BR)',
 	};
 
 	const changeLocale = (newLocale: Locale) => {
@@ -43,7 +43,7 @@ export function LanguageSelector() {
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button variant="ghost" size="icon" className="h-9 w-9">
-					<span className="text-base">
+					<span className="text-2xl">
 						{localeFlags[locale as Locale] || '🌐'}
 					</span>
 					<span className="sr-only">Select language</span>
@@ -56,11 +56,9 @@ export function LanguageSelector() {
 						onClick={() => changeLocale(loc as Locale)}
 						className={locale === loc ? 'bg-accent' : ''}
 					>
-						<span className="text-lg flex items-center">
-							{localeFlags[loc as Locale]}
-							<span className="text-sm ml-2">
-								{localeLabels[loc as Locale]}
-							</span>
+						<span className="flex items-center gap-2">
+							<span className="text-2xl">{localeFlags[loc as Locale]}</span>
+							<span className="text-sm">{localeLabels[loc as Locale]}</span>
 						</span>
 					</DropdownMenuItem>
 				))}

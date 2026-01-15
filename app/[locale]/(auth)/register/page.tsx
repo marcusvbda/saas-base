@@ -235,7 +235,7 @@ export default function RegisterPage() {
 						</ButtonLoading>
 						<SocialLoginProvider />
 						<p className="text-center text-sm text-muted-foreground">
-							{t('Has already an account?')}{' '}
+							{t('Has already an account')}?{' '}
 							<LocaleLink
 								href="/sign-in"
 								className="text-primary hover:underline font-medium"

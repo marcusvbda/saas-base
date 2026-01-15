@@ -74,7 +74,7 @@ export default function ForgotPasswordPage() {
 				<div className="w-full max-w-md space-y-6">
 					<div className="space-y-2">
 						<h1 className="text-3xl font-bold tracking-tight">
-							{t('Forgot your password?')}
+							{t('Forgot your password')}
 						</h1>
 						<p className="text-muted-foreground">
 							{t(

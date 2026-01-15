@@ -124,7 +124,7 @@ const FragmentContent = () => {
 								href="/forgot-password"
 								className="text-sm text-primary hover:underline"
 							>
-								{t('Forgot your password?')}
+								{t('Forgot your password')}
 							</LocaleLink>
 						</div>
 						<ButtonLoading
@@ -136,7 +136,7 @@ const FragmentContent = () => {
 						</ButtonLoading>
 						<SocialLoginProvider />
 						<p className="text-center text-sm text-muted-foreground">
-							{t(`Don't have an account?`)}{' '}
+							{t(`Don't have an account`)}?{' '}
 							<LocaleLink
 								href="/register"
 								className="text-primary hover:underline font-medium"

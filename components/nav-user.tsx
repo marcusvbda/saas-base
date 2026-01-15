@@ -17,13 +17,11 @@ import {
 	useSidebar,
 } from '@/components/ui/sidebar';
 import { useLocale } from '@/hooks/use-locale';
-import { useSession } from '@/providers/session.provider';
 import UserAvatar from './user-avatar';
 
 export function NavUser() {
 	const { isMobile } = useSidebar();
 	const { router, t } = useLocale();
-	const { session } = useSession();
 
 	return (
 		<SidebarMenu>

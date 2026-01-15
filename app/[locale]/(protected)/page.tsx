@@ -1,21 +1,16 @@
 'use client';
-import { SectionCards } from '@/components/section-cards';
-import { ChartAreaInteractive } from '@/components/chart-area-interactive';
-import { DataTable } from '@/components/data-table';
-import data from './data.json';
 import BasePage from './base-page';
+import { useLocale } from '@/hooks/use-locale';
 
 export default function DashboardPage() {
+	const { t } = useLocale();
 	return (
 		<BasePage
-			breadcrumbItems={[
-				{ title: 'Dashboard' },
-				// { title: 'Settings', url: '/settings' },
-			]}
+			breadcrumbItems={[{ title: 'Dashboard' }]}
+			title={t('Dashboard')}
+			description={t('Welcome to the dashboard')}
 		>
-			<SectionCards />
-			<ChartAreaInteractive />
-			<DataTable data={data} />
+			dashboard
 		</BasePage>
 	);
 }
