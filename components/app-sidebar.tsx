@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/sidebar';
 import { NavUser } from '@/components/nav-user';
 import { useLocale } from '@/hooks/use-locale';
+import { LocaleLink } from './locale';
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 	const { t } = useLocale();
@@ -92,10 +93,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 							asChild
 							className="data-[slot=sidebar-menu-button]:!p-1.5"
 						>
-							<a href="#">
+							<LocaleLink href="">
 								<IconInnerShadowTop className="!size-5" />
 								<span className="text-base font-semibold">Acme Inc.</span>
-							</a>
+							</LocaleLink>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 				</SidebarMenu>
