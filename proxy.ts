@@ -28,9 +28,10 @@ export function proxy(request: NextRequest) {
     const res = NextResponse.next();
     const pathname = request.nextUrl.pathname
 
-    const pathnameHasLocale = locales.some(
-        (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
-    )
+    const splitPathname = pathname.split("/");
+    const pathnameLocale = String(splitPathname[1] || "").toLowerCase();
+    const pathnameHasLocale = locales.includes(pathnameLocale);
+
 
     if (!pathnameHasLocale) {
         const locale = getPreferredLocale(request)
@@ -38,10 +39,10 @@ export function proxy(request: NextRequest) {
         return NextResponse.redirect(request.nextUrl)
     }
 
-    res.headers.set("x-pathname", request.nextUrl.pathname)
+    res.headers.set("x-pathname", pathname)
     return res
 }
 
 export const config = {
-    matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+    matcher: ["/((?!api|_next/static|_next/image|public|.well-known|favicon.ico).*)"],
 }

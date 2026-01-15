@@ -12,13 +12,9 @@ import {
 } from '@/components/ui/field';
 import { InputPassword } from '@/components/ui/input-password';
 import { ButtonLoading } from '@/components/ui/button-loading';
-import { useLocale } from '@/hooks/locale';
+import { useLocale } from '@/hooks/use-locale';
 
-interface IProps {
-	token: string;
-}
-
-export default function ClientPage({ token }: IProps) {
+export default function ClientPage({ token }: { token: string }) {
 	const { t, router } = useLocale();
 
 	const formSchema = z
@@ -121,7 +117,9 @@ export default function ClientPage({ token }: IProps) {
 							<div>
 								<h3 className="font-semibold">{t('Strong password')}</h3>
 								<p className="text-sm text-muted-foreground">
-									{t('Use a combination of letters, numbers and special characters')}
+									{t(
+										'Use a combination of letters, numbers and special characters'
+									)}
 								</p>
 							</div>
 						</div>
@@ -144,7 +142,9 @@ export default function ClientPage({ token }: IProps) {
 							<div>
 								<h3 className="font-semibold">{t('Keep it secure')}</h3>
 								<p className="text-sm text-muted-foreground">
-									{t('Never share your password with anyone and change it regularly')}
+									{t(
+										'Never share your password with anyone and change it regularly'
+									)}
 								</p>
 							</div>
 						</div>

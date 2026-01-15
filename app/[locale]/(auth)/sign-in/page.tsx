@@ -1,8 +1,8 @@
 'use client';
 
-import { FormEvent, Suspense, useState, useTransition } from 'react';
+import { FormEvent, Suspense, useEffect, useState, useTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { signIn } from '@/lib/better-auth/auth-client';
+import { signIn, signOut } from '@/lib/better-auth/auth-client';
 import { z } from 'zod';
 import { getValidatedParams } from '@/helpers/common';
 import {
@@ -16,9 +16,13 @@ import { ButtonLoading } from '@/components/ui/button-loading';
 import { InputPassword } from '@/components/ui/input-password';
 import { toast } from 'sonner';
 import { LocaleLink } from '@/components/locale';
-import { useLocale } from '@/hooks/locale';
+import { useLocale } from '@/hooks/use-locale';
 
 const FragmentContent = () => {
+	useEffect(() => {
+		signOut();
+	}, []);
+
 	const { t } = useLocale();
 	const formSchema = z.object({
 		email: z.string().email(t('Invalid email')),

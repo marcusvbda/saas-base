@@ -30,6 +30,7 @@ Preparation and structure definition
 
 System core
 
-- [ ] admin template ui starter
+- [x] admin template ui starter
+- [ ] social login
 - [ ] Profile edit
 - [ ] settings

@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { LocaleLink } from '@/components/locale';
 import { ButtonLoading } from '@/components/ui/button-loading';
 import { toast } from 'sonner';
-import { useLocale } from '@/hooks/locale';
+import { useLocale } from '@/hooks/use-locale';
 
 export default function ForgotPasswordPage() {
 	const { t } = useLocale();
@@ -77,7 +77,9 @@ export default function ForgotPasswordPage() {
 							{t('Forgot your password?')}
 						</h1>
 						<p className="text-muted-foreground">
-							{t('Enter your email address and we will send you a link to reset your password')}
+							{t(
+								'Enter your email address and we will send you a link to reset your password'
+							)}
 						</p>
 					</div>
 					<form onSubmit={handleSubmit} className="space-y-4">
@@ -86,9 +88,7 @@ export default function ForgotPasswordPage() {
 							<FieldContent className="gap-0">
 								<Input
 									value={form.email}
-									onChange={(e) =>
-										setForm({ ...form, email: e.target.value })
-									}
+									onChange={(e) => setForm({ ...form, email: e.target.value })}
 									aria-invalid={form.errors?.email ? 'true' : undefined}
 								/>
 								<FieldError className="text-red-500 mt-2">
@@ -170,7 +170,9 @@ export default function ForgotPasswordPage() {
 							<div>
 								<h3 className="font-semibold">{t('Secure process')}</h3>
 								<p className="text-sm text-muted-foreground">
-									{t('Your password reset link is encrypted and time-limited for your security')}
+									{t(
+										'Your password reset link is encrypted and time-limited for your security'
+									)}
 								</p>
 							</div>
 						</div>

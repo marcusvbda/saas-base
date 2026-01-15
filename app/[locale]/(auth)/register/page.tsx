@@ -15,7 +15,7 @@ import { InputPassword } from '@/components/ui/input-password';
 import { ButtonLoading } from '@/components/ui/button-loading';
 import { toast } from 'sonner';
 import { LocaleLink } from '@/components/locale';
-import { useLocale } from '@/hooks/locale';
+import { useLocale } from '@/hooks/use-locale';
 
 export default function RegisterPage() {
 	const { t } = useLocale();
@@ -117,7 +117,9 @@ export default function RegisterPage() {
 							<div>
 								<h3 className="font-semibold">{t('Personal account')}</h3>
 								<p className="text-sm text-muted-foreground">
-									{t('Create your personal account and customize your experience')}
+									{t(
+										'Create your personal account and customize your experience'
+									)}
 								</p>
 							</div>
 						</div>
@@ -140,7 +142,9 @@ export default function RegisterPage() {
 							<div>
 								<h3 className="font-semibold">{t('Easy setup')}</h3>
 								<p className="text-sm text-muted-foreground">
-									{t('Get started in minutes with our simple registration process')}
+									{t(
+										'Get started in minutes with our simple registration process'
+									)}
 								</p>
 							</div>
 						</div>
@@ -178,9 +182,7 @@ export default function RegisterPage() {
 							<FieldContent className="gap-0">
 								<Input
 									value={form.email}
-									onChange={(e) =>
-										setForm({ ...form, email: e.target.value })
-									}
+									onChange={(e) => setForm({ ...form, email: e.target.value })}
 									aria-invalid={form.errors?.email ? 'true' : undefined}
 								/>
 								<FieldError className="text-red-500 mt-2">
