@@ -8,7 +8,6 @@ export async function getSession() {
     const session = await auth.api.getSession({
         headers: headersList as any,
     })
-
     return session
 }
 

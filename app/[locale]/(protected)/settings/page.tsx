@@ -17,18 +17,14 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import SectionSettings from '@/components/section-settings';
-import Loading from '@/components/loading';
-import { useQueryClient } from '@tanstack/react-query';
 
 export const SettingsSections = ['account', 'general', 'credentials'];
 export type ISettingsSection = (typeof SettingsSections)[number];
 
 export default function SettingsPage() {
 	const [isClient, setIsClient] = useState(false);
-	const queryClient = useQueryClient();
 	const { t, locale } = useLocale();
-	const { session, setSession, userSettings } = useSession();
-
+	const { session, setSession } = useSession();
 	const [activeSection, setActiveSection] = useQueryState(
 		'section',
 		SettingsSections,
@@ -115,12 +111,9 @@ export default function SettingsPage() {
 							</SectionSettings>
 						</Activity>
 						<Activity mode={activeSection === 'general' ? 'visible' : 'hidden'}>
-							{userSettings === 'loading' ? (
-								<Loading parentClassName="py-10" />
-							) : (
 								<SectionSettings
 									resource={t('timezone')}
-									apiPath="/api/settings/general-update"
+										apiPath="/api/settings/general-update"
 									validator={() => {
 										return z.object({
 											timezone: z
@@ -133,7 +126,7 @@ export default function SettingsPage() {
 									}}
 									initialData={{
 										timezone:
-											userSettings?.timezone ||
+											session?.settings?.timezone ||
 											Intl.DateTimeFormat().resolvedOptions().timeZone,
 									}}
 									fields={[
@@ -158,16 +151,15 @@ export default function SettingsPage() {
 										},
 									]}
 									onSuccess={({ data }: any) => {
-										queryClient.setQueryData(
-											['user-settings', session?.user.id],
-											{
-												...userSettings,
+										setSession({
+											...session,
+											user: {
+												...session?.user,
 												timezone: data.timezone,
-											}
-										);
+											},
+										});
 									}}
 								/>
-							)}
 						</Activity>
 						<Activity
 							mode={activeSection === 'credentials' ? 'visible' : 'hidden'}
