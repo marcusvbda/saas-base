@@ -2,7 +2,7 @@ export const locales = ["en", "pt"];
 export const defaultLocale = "en";
 
 const dictionaries = {
-    pt: () => import('./dictionaries/pt.json').then((module) => module.default),
+    pt: () => import('./dictionaries/pt').then((module) => module.default),
 }
 export type Locale = "en" | "pt";
 

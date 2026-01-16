@@ -1,6 +1,6 @@
 'use client';
 
-import { IconShield } from '@tabler/icons-react';
+import { IconSettings, IconShield } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './ui/card';
 import { ISettingsSection } from '@/app/[locale]/(protected)/settings/page';
@@ -23,6 +23,7 @@ export default function SettingsSidebar({
 		icon: React.ComponentType<{ className?: string }>;
 	}> = [
 		{ id: 'account', label: t('Account'), icon: IconShield },
+		{ id: 'general', label: t('General'), icon: IconSettings },
 		{ id: 'credentials', label: t('Credentials'), icon: LockIcon },
 	];
 

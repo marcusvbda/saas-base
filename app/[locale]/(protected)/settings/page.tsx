@@ -8,12 +8,16 @@ import AccountSettings from '@/components/account-settings';
 import { Card, CardContent } from '@/components/ui/card';
 import { useQueryState } from '@/hooks/use-query-state';
 import CredentialSettings from '@/components/credential-settings';
+import GeneralSettings from '@/components/general-settings';
+import { useSession } from '@/providers/session.provider';
 
-export const SettingsSections = ['account', 'credentials'];
+export const SettingsSections = ['account', 'general', 'credentials'];
 export type ISettingsSection = (typeof SettingsSections)[number];
 
 export default function SettingsPage() {
 	const { t } = useLocale();
+	const { session, setSession } = useSession();
+
 	const [activeSection, setActiveSection] = useQueryState(
 		'section',
 		SettingsSections,
@@ -42,6 +46,9 @@ export default function SettingsPage() {
 					<CardContent>
 						<Activity mode={activeSection === 'account' ? 'visible' : 'hidden'}>
 							<AccountSettings />
+						</Activity>
+						<Activity mode={activeSection === 'general' ? 'visible' : 'hidden'}>
+							<GeneralSettings />
 						</Activity>
 						<Activity
 							mode={activeSection === 'credentials' ? 'visible' : 'hidden'}

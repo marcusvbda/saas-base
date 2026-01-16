@@ -11,7 +11,6 @@ import {
 	FieldTitle,
 } from '@/components/ui/field';
 import { InputPassword } from '@/components/ui/input-password';
-import { Separator } from '@/components/ui/separator';
 import { useSession } from '@/providers/session.provider';
 import { useLocale } from '@/hooks/use-locale';
 import { ButtonLoading } from './ui/button-loading';
@@ -112,11 +111,9 @@ export default function CredentialSettings() {
 				</Field>
 			</FieldGroup>
 
-			<Separator />
-
 			<div className="flex justify-end">
 				<ButtonLoading isLoading={isPending} type="submit">
-					{t('Update password')}
+					{t('Update {resource}', { resource: t('credentials') })}
 				</ButtonLoading>
 			</div>
 		</form>

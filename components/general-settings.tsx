@@ -18,7 +18,7 @@ import z from 'zod';
 import { getValidatedParams } from '@/helpers/common';
 import { toast } from 'sonner';
 
-export default function AccountSettings() {
+export default function GeneralSettings() {
 	const { t } = useLocale();
 	const { session, setSession } = useSession();
 	const formSchema = z.object({
@@ -65,23 +65,6 @@ export default function AccountSettings() {
 			<FieldGroup>
 				<Field>
 					<FieldLabel>
-						<FieldTitle>Email</FieldTitle>
-					</FieldLabel>
-					<FieldContent>
-						<Input
-							type="email"
-							disabled
-							className="bg-muted"
-							value={session?.user.email}
-							readOnly
-						/>
-						<FieldDescription>
-							{t('Your email address cannot be changed')}.
-						</FieldDescription>
-					</FieldContent>
-				</Field>
-				<Field>
-					<FieldLabel>
 						<FieldTitle>{t('Name')}</FieldTitle>
 					</FieldLabel>
 					<FieldContent>
@@ -107,7 +90,7 @@ export default function AccountSettings() {
 
 			<div className="flex justify-end">
 				<ButtonLoading isLoading={isPending} type="submit">
-					{t('Update {resource}', { resource: t('profile') })}
+					{t('Update {resource}', { resource: t('settings') })}
 				</ButtonLoading>
 			</div>
 		</form>

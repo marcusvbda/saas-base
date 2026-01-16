@@ -34,5 +34,5 @@ System core
 - [x] social login
 - [x] language selector
 - [x] theme selector
-- [ ] Profile edit
+- [x] Profile edit
 - [ ] settings
