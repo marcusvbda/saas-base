@@ -140,9 +140,12 @@ export default function SettingsPage() {
 												const tzLocale = ['pt'].includes(locale)
 													? 'pt-BR'
 													: 'en-US';
-												return new Date().toLocaleString(tzLocale, {
+
+
+												const formattedSelectedTz = new Date().toLocaleString(tzLocale, {
 													timeZone: form.timezone,
 												});
+												return formattedSelectedTz;
 											},
 											options: Intl.supportedValuesOf('timeZone').map((tz) => ({
 												label: tz,
