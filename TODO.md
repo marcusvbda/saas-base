@@ -35,4 +35,10 @@ System core
 - [x] language selector
 - [x] theme selector
 - [x] Profile edit
-- [ ] settings
+- [x] settings
+
+### Phase 4
+
+Plans
+
+- [] ....

@@ -26,8 +26,8 @@ export default {
     'Fast and reliable': 'Rápido e confiável',
     'Quick access to all your features and tools':
         'Acesso rápido a todos os seus recursos e ferramentas',
-    'Forgot your password': 'Esqueceu sua senha?',
-    "Don't have an account": "Não tem uma conta?",
+    'Forgot your password': 'Esqueceu sua senha',
+    "Don't have an account": "Não tem uma conta",
     'Create account': 'Criar conta',
 
     // Register
@@ -112,6 +112,11 @@ export default {
     'Confirm new password': 'Confirmar nova senha',
     'Please confirm your new password': 'Por favor, confirme sua nova senha',
     'Update password': 'Atualizar senha',
+
+    // General Settings
+    'Timezone': 'Fuso horário',
+    'timezone': 'fuso horário',
+    'Select your timezone': 'Selecione seu fuso horário',
 
     // Sidebar/Navigation
     'Log out': 'Sair',

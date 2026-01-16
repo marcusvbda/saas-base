@@ -4,6 +4,7 @@ import { useLocale } from '@/hooks/use-locale';
 
 export default function DashboardPage() {
 	const { t } = useLocale();
+
 	return (
 		<BasePage
 			breadcrumbItems={[{ title: 'Dashboard' }]}

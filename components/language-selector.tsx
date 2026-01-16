@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { locales, type Locale } from '@/i18n/dictionaries';
 import {
 	DropdownMenu,
@@ -18,6 +18,7 @@ const localeFlags: Record<Locale, string> = {
 
 export function LanguageSelector() {
 	const { t, locale } = useLocale();
+	const searchParams = useSearchParams();
 	const router = useRouter();
 	const pathname = usePathname();
 
@@ -34,7 +35,10 @@ export function LanguageSelector() {
 
 		// Update the URL by replacing the locale segment
 		const pathWithoutLocale = pathname.replace(/^\/[^/]+/, '');
-		const newPath = `/${newLocale}${pathWithoutLocale || '/'}`;
+		const queryString = searchParams.toString();
+		const newPath = `/${newLocale}${pathWithoutLocale || '/'}${
+			queryString ? `?${queryString}` : ''
+		}`;
 		router.push(newPath);
 		router.refresh();
 	};

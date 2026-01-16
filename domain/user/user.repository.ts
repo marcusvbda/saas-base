@@ -24,7 +24,7 @@ export default class UserRepository {
 
     async createUserVerification(userId: string, token: string) {
         await this.db.execute(
-            "INSERT INTO `verification` (`id`, `identifier`, `value`, `expiresAt`, `createdAt`, `updatedAt`) VALUES (UUID(), :identifier, :value, DATE_ADD(NOW(), INTERVAL 1 HOUR), NOW(), NOW())",
+            "INSERT INTO `verification` (`id`, `identifier`, `value`, `expiresAt`) VALUES (UUID(), :identifier, :value, DATE_ADD(NOW(), INTERVAL 1 HOUR))",
             {
                 identifier: `reset-password:${userId}`,
                 value: token,

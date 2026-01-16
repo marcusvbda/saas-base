@@ -8,11 +8,8 @@ export const useLocale = () => {
 	const { dictionary } = useSystem();
 	const translate = (key: string, params?: any) => {
 		try {
-			if (!dictionary[key]) return key;
-			return processParams(
-				dictionary[key as keyof typeof dictionary],
-				params || {}
-			);
+			const target = dictionary?.[key] ? dictionary[key] : key;
+			return processParams(target, params || {});
 		} catch {
 			return key;
 		}
