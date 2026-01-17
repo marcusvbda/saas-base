@@ -7,7 +7,10 @@ export interface ISettingsField {
 	type: 'text' | 'password' | 'select' | 'custom';
 	options?: { label: string; value: string }[];
 	placeholder?: string;
-	component?: ComponentType<{ value: string; onChange: (value: string) => void }>;
+	component?: ComponentType<{
+		value: string;
+		onChange: (value: string) => void;
+	}>;
 }
 
 export interface ISettingsSection {

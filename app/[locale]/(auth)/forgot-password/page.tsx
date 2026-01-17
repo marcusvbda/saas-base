@@ -91,7 +91,7 @@ export default function ForgotPasswordPage() {
 									onChange={(e) => setForm({ ...form, email: e.target.value })}
 									aria-invalid={form.errors?.email ? 'true' : undefined}
 								/>
-								<FieldError className="text-red-500 mt-2">
+								<FieldError className="text-red-500 ">
 									{form.errors?.email}
 								</FieldError>
 							</FieldContent>

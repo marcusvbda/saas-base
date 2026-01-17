@@ -25,7 +25,7 @@ export default function BasePage({
 							<div>
 								{title && <h1 className="text-3xl font-bold">{title}</h1>}
 								{description && (
-									<p className="text-muted-foreground mt-2">{description}</p>
+									<p className="text-muted-foreground ">{description}</p>
 								)}
 							</div>
 						)}

@@ -32,7 +32,10 @@ export async function PUT(request: NextRequest) {
 
 			const settingsService = new SettingsService();
 			await settingsService.upsertSettings(session.user.id, updateData);
-			return NextResponse.json({ data: { success: true, ...updateData } }, { status: 200 });
+			return NextResponse.json(
+				{ data: { success: true, ...updateData } },
+				{ status: 200 },
+			);
 		} catch (error: any) {
 			return NextResponse.json(
 				{ error: { message: error.message } },

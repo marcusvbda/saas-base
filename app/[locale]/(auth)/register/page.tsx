@@ -173,7 +173,7 @@ export default function RegisterPage() {
 									onChange={(e) => setForm({ ...form, name: e.target.value })}
 									aria-invalid={form.errors?.name ? 'true' : undefined}
 								/>
-								<FieldError className="text-red-500 mt-2">
+								<FieldError className="text-red-500 ">
 									{form.errors?.name}
 								</FieldError>
 							</FieldContent>
@@ -186,7 +186,7 @@ export default function RegisterPage() {
 									onChange={(e) => setForm({ ...form, email: e.target.value })}
 									aria-invalid={form.errors?.email ? 'true' : undefined}
 								/>
-								<FieldError className="text-red-500 mt-2">
+								<FieldError className="text-red-500 ">
 									{form.errors?.email}
 								</FieldError>
 							</FieldContent>
@@ -201,7 +201,7 @@ export default function RegisterPage() {
 									}
 									aria-invalid={form.errors?.password ? 'true' : undefined}
 								/>
-								<FieldError className="text-red-500 mt-2">
+								<FieldError className="text-red-500 ">
 									{form.errors?.password}
 								</FieldError>
 							</FieldContent>
@@ -221,7 +221,7 @@ export default function RegisterPage() {
 										form.errors?.passwordConfirmation ? 'true' : undefined
 									}
 								/>
-								<FieldError className="text-red-500 mt-2">
+								<FieldError className="text-red-500 ">
 									{form.errors?.passwordConfirmation}
 								</FieldError>
 							</FieldContent>

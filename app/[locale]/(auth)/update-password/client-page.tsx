@@ -174,7 +174,7 @@ export default function ClientPage({ token }: { token: string }) {
 									}
 									aria-invalid={form.errors?.password ? 'true' : undefined}
 								/>
-								<FieldError className="text-red-500 mt-2">
+								<FieldError className="text-red-500 ">
 									{form.errors?.password}
 								</FieldError>
 							</FieldContent>
@@ -191,7 +191,7 @@ export default function ClientPage({ token }: { token: string }) {
 										form.errors?.confirmPassword ? 'true' : undefined
 									}
 								/>
-								<FieldError className="text-red-500 mt-2">
+								<FieldError className="text-red-500 ">
 									{form.errors?.confirmPassword}
 								</FieldError>
 							</FieldContent>

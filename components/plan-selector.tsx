@@ -1,7 +1,7 @@
 'use client';
 
 import { useLocale } from '@/hooks/use-locale';
-import { PLANS} from '@/constants/plans';
+import { PLANS } from '@/constants/plans';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckIcon } from 'lucide-react';
@@ -53,15 +53,16 @@ export default function PlanSelector({ value, onChange }: PlanSelectorProps) {
 									<span className="text-3xl font-bold">
 										{formatPrice(plan.price, locale)}
 									</span>
-									<span className="text-muted-foreground">
-										/ {t('month')}
-									</span>
+									<span className="text-muted-foreground">/ {t('month')}</span>
 								</div>
 							</div>
 
 							<ul className="space-y-2 flex-1">
 								{plan.features.map((feature, index) => (
-									<li key={`${feature.id}-${index}`} className="flex items-center gap-2">
+									<li
+										key={`${feature.id}-${index}`}
+										className="flex items-center gap-2"
+									>
 										<CheckIcon className="h-5 w-5 text-green-500 shrink-0" />
 										<span className="text-sm">
 											{t(feature.label as any) || feature.label}

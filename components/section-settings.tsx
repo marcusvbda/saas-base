@@ -139,7 +139,8 @@ export default function SectionSettings({
 									</SelectContent>
 								</Select>
 							)}
-							{['custom'].includes(field?.type || '') && field?.component && (
+							{['custom'].includes(field?.type || '') &&
+								field?.component &&
 								(() => {
 									const CustomComponent = field.component;
 									return (
@@ -150,10 +151,9 @@ export default function SectionSettings({
 											}
 										/>
 									);
-								})()
-							)}
+								})()}
 						</FieldContent>
-						<FieldError className="text-red-500 mt-2">
+						<FieldError className="text-red-500 ">
 							{form.errors?.[field.name]}
 						</FieldError>
 						{field?.description && (
