@@ -14,7 +14,7 @@ export default function GeneralSettings() {
 	useEffect(() => {
 		setIsClient(true);
 	}, []);
-	
+
 	if (!isClient) return null;
 
 	return (

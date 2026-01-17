@@ -18,9 +18,8 @@ export default function SettingsPage() {
 	const [activeSection, setActiveSection] = useQueryState(
 		'section',
 		SettingsSections,
-		'account'
+		'account',
 	);
-
 
 	return (
 		<BasePage
@@ -30,7 +29,7 @@ export default function SettingsPage() {
 			]}
 			title={t('Settings')}
 			description={t(
-				'Manage your account settings and set e-mail preferences.'
+				'Manage your account settings and set e-mail preferences.',
 			)}
 		>
 			<div className="gap-6 w-full grid grid-cols-1 md:grid-cols-[1fr_4fr]">
@@ -46,7 +45,7 @@ export default function SettingsPage() {
 							<AccountSettings />
 						</Activity>
 						<Activity mode={activeSection === 'general' ? 'visible' : 'hidden'}>
-								<GeneralSettings />
+							<GeneralSettings />
 						</Activity>
 						<Activity
 							mode={activeSection === 'credentials' ? 'visible' : 'hidden'}

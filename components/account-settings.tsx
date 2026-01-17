@@ -19,7 +19,7 @@ export default function AccountSettings() {
 
 	return (
 		<SectionSettings
-			resource={t('profile')}
+			resource={t('Account')}
 			apiPath="/api/auth/profile/data-update"
 			validator={() => {
 				return z.object({
