@@ -1,6 +1,6 @@
 'use client';
 
-import { IconSettings, IconShield } from '@tabler/icons-react';
+import { IconSettings, IconShield, IconCreditCard } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './ui/card';
 import { ISettingsSection } from '@/app/[locale]/(protected)/settings/page';
@@ -24,6 +24,7 @@ export default function SettingsSidebar({
 	}> = [
 		{ id: 'account', label: t('Account'), icon: IconShield },
 		{ id: 'general', label: t('General'), icon: IconSettings },
+		{ id: 'plan', label: t('Plan'), icon: IconCreditCard },
 		{ id: 'credentials', label: t('Credentials'), icon: LockIcon },
 	];
 

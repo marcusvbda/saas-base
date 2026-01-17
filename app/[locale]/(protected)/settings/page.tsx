@@ -9,8 +9,9 @@ import { useQueryState } from '@/hooks/use-query-state';
 import AccountSettings from '@/components/account-settings';
 import GeneralSettings from '@/components/general-settings';
 import CredentialSettings from '@/components/credential-settngs';
+import PlanSettings from '@/components/plan-settings';
 
-export const SettingsSections = ['account', 'general', 'credentials'];
+export const SettingsSections = ['account', 'general', 'plan', 'credentials'];
 export type ISettingsSection = (typeof SettingsSections)[number];
 
 export default function SettingsPage() {
@@ -44,14 +45,17 @@ export default function SettingsPage() {
 						<Activity mode={activeSection === 'account' ? 'visible' : 'hidden'}>
 							<AccountSettings />
 						</Activity>
-						<Activity mode={activeSection === 'general' ? 'visible' : 'hidden'}>
-							<GeneralSettings />
-						</Activity>
-						<Activity
-							mode={activeSection === 'credentials' ? 'visible' : 'hidden'}
-						>
-							<CredentialSettings />
-						</Activity>
+					<Activity mode={activeSection === 'general' ? 'visible' : 'hidden'}>
+						<GeneralSettings />
+					</Activity>
+					<Activity mode={activeSection === 'plan' ? 'visible' : 'hidden'}>
+						<PlanSettings />
+					</Activity>
+					<Activity
+						mode={activeSection === 'credentials' ? 'visible' : 'hidden'}
+					>
+						<CredentialSettings />
+					</Activity>
 					</CardContent>
 				</Card>
 			</div>
