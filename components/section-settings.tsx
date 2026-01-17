@@ -134,7 +134,7 @@ export default function SectionSettings({
 												<SelectItem key={option.value} value={option.value}>
 													{option.label}
 												</SelectItem>
-											)
+											),
 										)}
 									</SelectContent>
 								</Select>

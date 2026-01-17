@@ -118,7 +118,7 @@ export default function ClientPage({ token }: { token: string }) {
 								<h3 className="font-semibold">{t('Strong password')}</h3>
 								<p className="text-sm text-muted-foreground">
 									{t(
-										'Use a combination of letters, numbers and special characters'
+										'Use a combination of letters, numbers and special characters',
 									)}
 								</p>
 							</div>
@@ -143,7 +143,7 @@ export default function ClientPage({ token }: { token: string }) {
 								<h3 className="font-semibold">{t('Keep it secure')}</h3>
 								<p className="text-sm text-muted-foreground">
 									{t(
-										'Never share your password with anyone and change it regularly'
+										'Never share your password with anyone and change it regularly',
 									)}
 								</p>
 							</div>

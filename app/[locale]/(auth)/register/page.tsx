@@ -119,7 +119,7 @@ export default function RegisterPage() {
 								<h3 className="font-semibold">{t('Personal account')}</h3>
 								<p className="text-sm text-muted-foreground">
 									{t(
-										'Create your personal account and customize your experience'
+										'Create your personal account and customize your experience',
 									)}
 								</p>
 							</div>
@@ -144,7 +144,7 @@ export default function RegisterPage() {
 								<h3 className="font-semibold">{t('Easy setup')}</h3>
 								<p className="text-sm text-muted-foreground">
 									{t(
-										'Get started in minutes with our simple registration process'
+										'Get started in minutes with our simple registration process',
 									)}
 								</p>
 							</div>

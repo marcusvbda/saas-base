@@ -3,13 +3,16 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-
-export function useQueryState(key: string, validValues: string[], defaultValue: string) {
+export function useQueryState(
+	key: string,
+	validValues: string[],
+	defaultValue: string,
+) {
 	const searchParams = useSearchParams();
 	const gotQuery = searchParams.get(key) || '';
 	const initialSection = validValues.includes(gotQuery)
 		? gotQuery
-		: defaultValue
+		: defaultValue;
 	const [state, setState] = useState<string>(initialSection);
 
 	useEffect(() => {

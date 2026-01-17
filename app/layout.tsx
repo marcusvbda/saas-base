@@ -34,8 +34,8 @@ export default async function RootLayout({
 		themeCookie === 'dark' || themeCookie === 'light'
 			? themeCookie
 			: themeCookie === 'system'
-			? undefined
-			: undefined;
+				? undefined
+				: undefined;
 
 	return (
 		<html

@@ -78,7 +78,7 @@ export default function ForgotPasswordPage() {
 						</h1>
 						<p className="text-muted-foreground">
 							{t(
-								'Enter your email address and we will send you a link to reset your password'
+								'Enter your email address and we will send you a link to reset your password',
 							)}
 						</p>
 					</div>
@@ -171,7 +171,7 @@ export default function ForgotPasswordPage() {
 								<h3 className="font-semibold">{t('Secure process')}</h3>
 								<p className="text-sm text-muted-foreground">
 									{t(
-										'Your password reset link is encrypted and time-limited for your security'
+										'Your password reset link is encrypted and time-limited for your security',
 									)}
 								</p>
 							</div>
