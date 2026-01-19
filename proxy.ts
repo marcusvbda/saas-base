@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { match } from '@formatjs/intl-localematcher';
 import Negotiator from 'negotiator';
-import { defaultLocale, locales } from './i18n/dictionaries';
+import { defaultLocale, locales } from './i18n/translation';
 
 export function getPreferredLocale(request: NextRequest): string {
 	const cookieLocale = request.cookies.get('locale')?.value;

@@ -1,9 +1,6 @@
-import { database } from '@/lib/db/connection';
+import Repository from '@/services/db/repository';
 
-export default class BillingRepository {
-	constructor(private db: any = database) {
-		//
-	}
+export default class BillingRepository extends Repository {
 
 	async findBillingByUserId(userId: string) {
 		const [rows] = await this.db.execute(

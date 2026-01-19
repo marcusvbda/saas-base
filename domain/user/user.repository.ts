@@ -1,10 +1,6 @@
-import { database } from '@/lib/db/connection';
+import Repository from '@/services/db/repository';
 
-export default class UserRepository {
-	constructor(private db: any = database) {
-		//
-	}
-
+export default class UserRepository extends Repository{
 	async findById(id: string) {
 		const [rows] = await this.db.execute(
 			'SELECT * FROM `user` WHERE id = :id',

@@ -1,4 +1,4 @@
-import { Locale } from '@/i18n/dictionaries';
+import { Locale } from '@/i18n/translation';
 
 export const formatPrice = (
 	price: { BRL: number; USD: number },

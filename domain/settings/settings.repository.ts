@@ -1,9 +1,6 @@
-import { database } from '@/lib/db/connection';
+import Repository from '@/services/db/repository';
 
-export default class SettingsRepository {
-	constructor(private db: any = database) {
-		//
-	}
+export default class SettingsRepository extends Repository{
 
 	async findSettingsByUserId(userId: number) {
 		const [rows] = await this.db.execute(

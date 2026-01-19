@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { getDictionary, locales, hasLocale, Locale } from '@/i18n/dictionaries';
+import { getDictionary, locales, hasLocale, Locale } from '@/i18n/translation';
 import { redirect } from 'next/navigation';
 import { SystemProvider } from '@/providers/system.provider';
 import { IWithChildren } from '@/types/common';

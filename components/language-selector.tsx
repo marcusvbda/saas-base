@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { locales, type Locale } from '@/i18n/dictionaries';
+import { locales, type Locale } from '@/i18n/translation';
 import {
 	DropdownMenu,
 	DropdownMenuContent,

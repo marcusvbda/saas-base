@@ -1,6 +1,6 @@
 'use client';
 
-import { processParams } from '@/i18n/dictionaries';
+import { processParams } from '@/i18n/translation';
 import { useSystem } from '@/providers/system.provider';
 import { useRouter } from 'next/navigation';
 
