@@ -3,8 +3,10 @@ export interface PlanFeature {
 	label: string;
 }
 
+export type PlanType = 'free' | 'basic' | 'pro';
+
 export interface Plan {
-	id: string;
+	id: PlanType;
 	name: string;
 	price: {
 		BRL: number;

@@ -1,4 +1,5 @@
 'use client';
+import PlanGate from '@/components/plan-gate';
 import BasePage from './base-page';
 import { useLocale } from '@/hooks/use-locale';
 
@@ -11,7 +12,7 @@ export default function DashboardPage() {
 			title={t('Dashboard')}
 			description={t('Welcome to the dashboard')}
 		>
-			dashboard
+			<PlanGate allowedPlans={['free']}>dashboard</PlanGate>
 		</BasePage>
 	);
 }
