@@ -12,6 +12,6 @@ const common = {
 	'{resource} updated successfully': '{resource} atualizado com sucesso',
 	'{resource} must be at least {quantity} characters long':
 		'{resource} deve ter pelo menos {quantity} caracteres',
-} 
+};
 
 export default common;

@@ -2,6 +2,21 @@ import { Plan } from '@/types/plans';
 
 export const PLANS: Plan[] = [
 	{
+		id: 'free',
+		name: 'Free',
+		price: {
+			BRL: 0,
+			USD: 0,
+		},
+		features: [
+			{
+				id: 'free-features',
+				label: 'Free features',
+			},
+		],
+		isPopular: false,
+	},
+	{
 		id: 'basic',
 		name: 'Basic',
 		price: {
@@ -14,6 +29,7 @@ export const PLANS: Plan[] = [
 				label: 'Essential features',
 			},
 		],
+		isPopular: true,
 	},
 	{
 		id: 'pro',
@@ -28,8 +44,8 @@ export const PLANS: Plan[] = [
 				label: 'Advanced features',
 			},
 		],
-		isPopular: true,
+		isPopular: false,
 	},
 ];
 
-export const DEFAULT_PLAN = 'basic';
+export const DEFAULT_PLAN = 'free';

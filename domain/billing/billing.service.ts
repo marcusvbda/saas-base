@@ -10,14 +10,10 @@ export default class BillingService {
 	}
 
 	async upsertBilling(userId: string, data: any) {
-		try {
-			const billing = await this.repository.findBillingByUserId(userId);
-			if (billing) {
-				return await this.repository.updateBilling(billing.id, data);
-			}
-			await this.repository.createBilling(userId, data);
-		} catch (error) {
-			throw error;
+		const billing = await this.repository.findBillingByUserId(userId);
+		if (billing) {
+			return await this.repository.updateBilling(billing.id, data);
 		}
+		await this.repository.createBilling(userId, data);
 	}
 }

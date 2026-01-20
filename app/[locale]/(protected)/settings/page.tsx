@@ -11,13 +11,14 @@ import GeneralSettings from '@/components/general-settings';
 import CredentialSettings from '@/components/credential-settngs';
 import PlanSettings from '@/components/plan-settings';
 import BillingSettings from '@/components/billing-settings';
+import PlanGate from '@/components/plan-gate';
 
 export const SettingsSections = [
 	'account',
+	'credentials',
 	'general',
 	'plan',
 	'billing',
-	'credentials',
 ];
 export type ISettingsSection = (typeof SettingsSections)[number];
 
@@ -59,7 +60,9 @@ export default function SettingsPage() {
 							<PlanSettings />
 						</Activity>
 						<Activity mode={activeSection === 'billing' ? 'visible' : 'hidden'}>
-							<BillingSettings />
+							<PlanGate>
+								<BillingSettings />
+							</PlanGate>
 						</Activity>
 						<Activity
 							mode={activeSection === 'credentials' ? 'visible' : 'hidden'}

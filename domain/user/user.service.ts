@@ -9,16 +9,12 @@ export default class UserService {
 	}
 
 	async sendVerificationEmail(email: string, url: string) {
-		try {
-			await resend.emails.send({
-				from: process.env.RESEND_FROM_EMAIL!,
-				to: email,
-				subject: 'Verify your email',
-				html: `URL : ${url}`,
-			});
-		} catch (error) {
-			throw error;
-		}
+		await resend.emails.send({
+			from: process.env.RESEND_FROM_EMAIL!,
+			to: email,
+			subject: 'Verify your email',
+			html: `URL : ${url}`,
+		});
 	}
 
 	async sendPasswordResetEmail(email: string) {
@@ -48,12 +44,25 @@ export default class UserService {
 		const verification =
 			await this.repository.findPasswordVerificationToken(token);
 		if (!verification) return false;
+
 		const userId = verification.identifier.replace('reset-password:', '');
 		const user = await this.repository.findById(userId);
 		if (!user) return false;
+
 		const hashedPassword = await hashPassword(newPassword);
-		await this.repository.updatePassword(userId, hashedPassword);
-		await this.repository.deletePasswordVerificationToken(token);
+
+		// Transação para garantir atomicidade: update + delete devem ser atômicos
+		await this.repository.transaction(async (connection) => {
+			await connection.execute(
+				"UPDATE `account` SET `password` = :password, `updatedAt` = CURRENT_TIMESTAMP(3) WHERE `userId` = :userId AND `providerId` = 'credential'",
+				{ password: hashedPassword, userId },
+			);
+			await connection.execute(
+				'DELETE FROM `verification` WHERE `value` = :token',
+				{ token },
+			);
+		});
+
 		return true;
 	}
 
@@ -66,12 +75,17 @@ export default class UserService {
 	}
 
 	async verifyEmailByToken(token: string) {
-		const payload = jwt.verify(token, process.env.AUTH_SECRET as string);
+		const payload = jwt.verify(token, process.env.AUTH_SECRET as string) as {
+			email: string;
+		};
 		const user = await this.repository.findByEmail(payload.email);
+		if (!user) {
+			throw new Error('User not found');
+		}
 		await this.repository.verifyUserById(user.id);
 	}
 
-	async updateUserData(userId: string, data: any) {
+	async updateUserData(userId: string, data: { name?: string }) {
 		return await this.repository.updateUserData(userId, data);
 	}
 }

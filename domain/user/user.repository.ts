@@ -1,31 +1,25 @@
 import Repository from '@/services/db/repository';
 
-export default class UserRepository extends Repository{
+export default class UserRepository extends Repository {
 	async findById(id: string) {
-		const [rows] = await this.db.execute(
-			'SELECT * FROM `user` WHERE id = :id',
-			{ id },
-		);
-		return rows[0] || null;
+		return await this.findOne('SELECT * FROM `user` WHERE id = :id', { id });
 	}
 
 	async findByEmail(email: string) {
-		const [rows] = await this.db.execute(
-			'SELECT * FROM `user` WHERE email = :email',
-			{ email },
-		);
-		return rows[0] || null;
+		return await this.findOne('SELECT * FROM `user` WHERE email = :email', {
+			email,
+		});
 	}
 
 	async updatePassword(userId: string, hashedPassword: string) {
-		await this.db.execute(
+		await this.execute(
 			"UPDATE `account` SET `password` = :password, `updatedAt` = CURRENT_TIMESTAMP(3) WHERE `userId` = :userId AND `providerId` = 'credential'",
 			{ password: hashedPassword, userId },
 		);
 	}
 
 	async createUserVerification(userId: string, token: string) {
-		await this.db.execute(
+		await this.execute(
 			'INSERT INTO `verification` (`id`, `identifier`, `value`, `expiresAt`) VALUES (UUID(), :identifier, :value, DATE_ADD(NOW(), INTERVAL 1 HOUR))',
 			{
 				identifier: `reset-password:${userId}`,
@@ -35,30 +29,32 @@ export default class UserRepository extends Repository{
 	}
 
 	async findPasswordVerificationToken(token: string) {
-		const [rows] = await this.db.execute(
+		return await this.findOne(
 			'SELECT * FROM `verification` WHERE `value` = :token AND `expiresAt` > NOW()',
 			{ token },
 		);
-		return rows[0] || null;
 	}
 
 	async deletePasswordVerificationToken(token: string) {
-		await this.db.execute('DELETE FROM `verification` WHERE `value` = :token', {
+		await this.execute('DELETE FROM `verification` WHERE `value` = :token', {
 			token,
 		});
 	}
 
 	async verifyUserById(userId: string) {
-		await this.db.execute(
+		await this.execute(
 			'UPDATE `user` SET `emailVerified` = TRUE WHERE `id` = :userId',
 			{ userId },
 		);
 	}
 
-	async updateUserData(userId: string, data: any) {
-		await this.db.execute(
+	async updateUserData(userId: string, data: { name?: string }) {
+		if (!data.name) {
+			return;
+		}
+		await this.execute(
 			'UPDATE `user` SET `name` = :name WHERE `id` = :userId',
-			{ ...data, userId },
+			{ name: data.name, userId },
 		);
 	}
 }

@@ -7,19 +7,15 @@ export default class SettingsService {
 		//
 	}
 
-	async getSettingsByUserId(userId: number) {
+	async getSettingsByUserId(userId: string) {
 		return this.repository.findSettingsByUserId(userId);
 	}
 
-	async upsertSettings(userId: number, data: any) {
-		try {
-			const settings = await this.repository.findSettingsByUserId(userId);
-			if (settings) {
-				return await this.repository.updateSettings(settings.id, data);
-			}
-			await this.repository.createSettings(userId, data);
-		} catch (error) {
-			throw error;
+	async upsertSettings(userId: string, data: any) {
+		const settings = await this.repository.findSettingsByUserId(userId);
+		if (settings) {
+			return await this.repository.updateSettings(settings.id, data);
 		}
+		await this.repository.createSettings(userId, data);
 	}
 }

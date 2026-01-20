@@ -28,10 +28,10 @@ export default function SettingsSidebar({
 		icon: React.ComponentType<{ className?: string }>;
 	}> = [
 		{ id: 'account', label: t('Account'), icon: IconShield },
+		{ id: 'credentials', label: t('Credentials'), icon: LockIcon },
 		{ id: 'general', label: t('General'), icon: IconSettings },
 		{ id: 'plan', label: t('Plan'), icon: IconCreditCard },
 		{ id: 'billing', label: t('Billing Information'), icon: IconWallet },
-		{ id: 'credentials', label: t('Credentials'), icon: LockIcon },
 	];
 
 	return (
