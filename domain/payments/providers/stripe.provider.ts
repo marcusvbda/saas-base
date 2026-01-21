@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+import { PLANS } from '@/constants/plans';
 import {
 	PaymentProviderInterface,
 	PaymentProviderConfig,
@@ -6,25 +6,29 @@ import {
 	CreateCustomerResult,
 	CreateSubscriptionParams,
 	CreateSubscriptionResult,
-	CancelSubscriptionParams,
-	UpdateSubscriptionParams,
 	CreatePaymentMethodParams,
 	PaymentMethod,
 	SubscriptionStatus,
-} from '../types';
+} from '../payments.service';
 import Stripe from 'stripe';
+
+export interface CancelSubscriptionParams {
+	subscriptionId: string;
+	immediately?: boolean;
+}
+
+export interface UpdateSubscriptionParams {
+	subscriptionId: string;
+	planId?: string;
+	paymentMethodId?: string;
+	metadata?: Record<string, string>;
+}
 
 export class StripePaymentProvider implements PaymentProviderInterface {
 	private stripe: Stripe;
 	private config: PaymentProviderConfig;
 
 	constructor(config: PaymentProviderConfig) {
-		if (!Stripe) {
-			throw new Error(
-				'Stripe package is not installed. Please install it with: npm install stripe',
-			);
-		}
-
 		if (config.provider !== 'stripe') {
 			throw new Error('Invalid provider. Expected "stripe"');
 		}
@@ -34,7 +38,7 @@ export class StripePaymentProvider implements PaymentProviderInterface {
 		}
 
 		this.config = config;
-		this.stripe = new Stripe(config.apiKey, {
+		this.stripe = new Stripe(this.config.apiKey, {
 			apiVersion: '2025-12-15.clover',
 		});
 	}
@@ -42,6 +46,30 @@ export class StripePaymentProvider implements PaymentProviderInterface {
 	async createCustomer(
 		params: CreateCustomerParams,
 	): Promise<CreateCustomerResult> {
+		if (params.email) {
+			const existingCustomers = await this.stripe.customers.search({
+				query: `email:'${params.email}'`,
+				limit: 1,
+			});
+
+			if (existingCustomers.data.length > 0) {
+				return {
+					customerId: existingCustomers.data[0].id,
+				};
+			}
+		}
+
+		const customersByMetadata = await this.stripe.customers.search({
+			query: `metadata['userId']:'${params.userId}'`,
+			limit: 1,
+		});
+
+		if (customersByMetadata.data.length > 0) {
+			return {
+				customerId: customersByMetadata.data[0].id,
+			};
+		}
+
 		const customer = await this.stripe.customers.create({
 			email: params.email,
 			name: params.name,
@@ -56,23 +84,99 @@ export class StripePaymentProvider implements PaymentProviderInterface {
 		};
 	}
 
+	private async getOrCreateProduct(planId: string): Promise<Stripe.Product> {
+		const productName = `Plan ${planId}`;
+
+		const existingProducts = await this.stripe.products.search({
+			query: `name:'${productName}' AND active:'true'`,
+			limit: 1,
+		});
+
+		if (existingProducts.data.length > 0) {
+			return existingProducts.data[0];
+		}
+
+		return await this.stripe.products.create({
+			name: productName,
+			metadata: {
+				planId,
+			},
+		});
+	}
+
+	private async getOrCreatePrice(
+		productId: string,
+		planId: string,
+		currency: string,
+	): Promise<Stripe.Price> {
+		const unitAmount = this.getPlanAmount(
+			planId,
+			currency.toUpperCase() as 'BRL' | 'USD',
+		);
+
+		let allPrices: Stripe.Price[] = [];
+		let hasMore = true;
+		let startingAfter: string | undefined = undefined;
+
+		while (hasMore) {
+			const searchParams: any = {
+				query: `product:'${productId}' AND active:'true'`,
+				limit: 100,
+			};
+
+			if (startingAfter) {
+				searchParams.starting_after = startingAfter;
+			}
+
+			const result = await this.stripe.prices.search(searchParams);
+			allPrices = allPrices.concat(result.data);
+			hasMore = result.has_more;
+			if (result.data.length > 0) {
+				startingAfter = result.data[result.data.length - 1].id;
+			}
+		}
+
+		const matchingPrice = allPrices.find(
+			(price) =>
+				price.currency === currency.toLowerCase() &&
+				price.unit_amount === unitAmount &&
+				price.recurring?.interval === 'month' &&
+				price.recurring?.interval_count === 1,
+		);
+
+		if (matchingPrice) {
+			return matchingPrice;
+		}
+
+		return await this.stripe.prices.create({
+			currency: currency.toLowerCase(),
+			product: productId,
+			recurring: {
+				interval: 'month',
+			},
+			unit_amount: unitAmount,
+			metadata: {
+				planId,
+			},
+		});
+	}
+
 	async createSubscription(
 		params: CreateSubscriptionParams,
 	): Promise<CreateSubscriptionResult> {
+		const product = await this.getOrCreateProduct(params.planId);
+
+		const price = await this.getOrCreatePrice(
+			product.id,
+			params.planId,
+			params.currency,
+		);
+
 		const subscriptionData: any = {
 			customer: params.customerId,
 			items: [
 				{
-					price_data: {
-						currency: params.currency.toLowerCase(),
-						product_data: {
-							name: `Plan ${params.planId}`,
-						},
-						recurring: {
-							interval: 'month',
-						},
-						unit_amount: this.getPlanAmount(params.planId, params.currency),
-					} as any, // Type assertion necessário porque product_data pode não estar no tipo PriceData
+					price: price.id,
 				},
 			],
 			metadata: {
@@ -83,12 +187,39 @@ export class StripePaymentProvider implements PaymentProviderInterface {
 		};
 
 		if (params.paymentMethodId) {
-			subscriptionData.default_payment_method = params.paymentMethodId;
+			try {
+				await this.stripe.paymentMethods.retrieve(params.paymentMethodId);
+				subscriptionData.default_payment_method = params.paymentMethodId;
+				subscriptionData.collection_method = 'charge_automatically';
+			} catch (error: any) {
+				if (error.code === 'resource_missing') {
+					throw new Error(
+						`Payment method ${params.paymentMethodId} not found. Please provide a valid payment method ID.`,
+					);
+				}
+				throw error;
+			}
 		}
 
 		const subscriptionResponse =
 			await this.stripe.subscriptions.create(subscriptionData);
 		const subscription = subscriptionResponse as unknown as Stripe.Subscription;
+
+		if (subscription.latest_invoice && params.paymentMethodId) {
+			const invoiceId =
+				typeof subscription.latest_invoice === 'string'
+					? subscription.latest_invoice
+					: subscription.latest_invoice.id;
+
+			const invoiceResponse = await this.stripe.invoices.retrieve(invoiceId);
+			const invoice = invoiceResponse as unknown as Stripe.Invoice;
+
+			if (invoice.status !== 'paid') {
+				await this.stripe.invoices.pay(invoiceId, {
+					payment_method: params.paymentMethodId,
+				});
+			}
+		}
 
 		let clientSecret: string | undefined;
 		if (subscription.status === 'incomplete' && subscription.latest_invoice) {
@@ -113,17 +244,30 @@ export class StripePaymentProvider implements PaymentProviderInterface {
 			}
 		}
 
+		const subscriptionDataObj = subscription as any;
+		let currentPeriodStartTimestamp = subscriptionDataObj.current_period_start;
+		let currentPeriodEndTimestamp = subscriptionDataObj.current_period_end;
+
+		if (
+			currentPeriodStartTimestamp == null ||
+			currentPeriodEndTimestamp == null ||
+			typeof currentPeriodStartTimestamp !== 'number' ||
+			typeof currentPeriodEndTimestamp !== 'number' ||
+			isNaN(currentPeriodStartTimestamp) ||
+			isNaN(currentPeriodEndTimestamp)
+		) {
+			const now = Math.floor(Date.now() / 1000);
+			currentPeriodStartTimestamp = now;
+			currentPeriodEndTimestamp = now + 30 * 24 * 60 * 60;
+		}
+
 		return {
 			subscriptionId: subscription.id,
 			providerSubscriptionId: subscription.id,
 			status: this.mapStripeStatusToSubscriptionStatus(subscription.status),
 			clientSecret,
-			currentPeriodStart: new Date(
-				(subscription as any).current_period_start * 1000,
-			),
-			currentPeriodEnd: new Date(
-				(subscription as any).current_period_end * 1000,
-			),
+			currentPeriodStart: new Date(currentPeriodStartTimestamp * 1000),
+			currentPeriodEnd: new Date(currentPeriodEndTimestamp * 1000),
 			customerId: subscription.customer as string,
 			paymentMethodId: subscription.default_payment_method as
 				| string
@@ -160,21 +304,12 @@ export class StripePaymentProvider implements PaymentProviderInterface {
 
 		if (params.planId && params.planId !== subscription.metadata.planId) {
 			const subscriptionItem = subscription.items.data[0];
-			// Criar um novo price com product primeiro
-			const price = await this.stripe.prices.create({
-				currency: subscription.currency,
-				product_data: {
-					name: `Plan ${params.planId}`,
-				},
-				recurring: {
-					interval: 'month',
-				},
-				unit_amount: this.getPlanAmount(
-					params.planId,
-					subscription.currency.toUpperCase() as 'BRL' | 'USD',
-				),
-			});
-			// Atualizar o subscription item com o novo price_id
+			const product = await this.getOrCreateProduct(params.planId);
+			const price = await this.getOrCreatePrice(
+				product.id,
+				params.planId,
+				subscription.currency,
+			);
 			await this.stripe.subscriptionItems.update(subscriptionItem.id, {
 				price: price.id,
 			});
@@ -211,36 +346,9 @@ export class StripePaymentProvider implements PaymentProviderInterface {
 		};
 	}
 
-	async getSubscription(providerSubscriptionId: string): Promise<{
-		status: SubscriptionStatus;
-		currentPeriodStart: Date;
-		currentPeriodEnd: Date;
-		canceledAt?: Date;
-	}> {
-		const subscriptionResponse = await this.stripe.subscriptions.retrieve(
-			providerSubscriptionId,
-		);
-		const subscription = subscriptionResponse as unknown as Stripe.Subscription;
-
-		return {
-			status: this.mapStripeStatusToSubscriptionStatus(subscription.status),
-			currentPeriodStart: new Date(
-				(subscription as any).current_period_start * 1000,
-			),
-			currentPeriodEnd: new Date(
-				(subscription as any).current_period_end * 1000,
-			),
-			canceledAt: (subscription as any).canceled_at
-				? new Date((subscription as any).canceled_at * 1000)
-				: undefined,
-		};
-	}
-
 	async createPaymentMethod(
 		params: CreatePaymentMethodParams,
 	): Promise<PaymentMethod> {
-		// No Stripe, o payment method já é criado no frontend
-		// Aqui apenas anexamos ao customer
 		await this.stripe.paymentMethods.attach(params.paymentMethodId, {
 			customer: params.customerId,
 		});
@@ -268,56 +376,6 @@ export class StripePaymentProvider implements PaymentProviderInterface {
 		};
 	}
 
-	async validateWebhook(
-		payload: string | Buffer,
-		signature: string,
-	): Promise<boolean> {
-		if (!this.config.webhookSecret) {
-			throw new Error('Webhook secret is required for webhook validation');
-		}
-
-		try {
-			this.stripe.webhooks.constructEvent(
-				payload,
-				signature,
-				this.config.webhookSecret,
-			);
-			return true;
-		} catch (error) {
-			return false;
-		}
-	}
-
-	async handleWebhook(event: any): Promise<{
-		type: string;
-		subscriptionId?: string;
-		customerId?: string;
-		data: any;
-	}> {
-		const eventType = event.type;
-		const data = event.data.object;
-
-		let subscriptionId: string | undefined;
-		let customerId: string | undefined;
-
-		if (data.subscription) {
-			subscriptionId = data.subscription;
-		} else if (data.id && eventType.includes('subscription')) {
-			subscriptionId = data.id;
-		}
-
-		if (data.customer) {
-			customerId = data.customer;
-		}
-
-		return {
-			type: eventType,
-			subscriptionId,
-			customerId,
-			data,
-		};
-	}
-
 	private mapStripeStatusToSubscriptionStatus(
 		stripeStatus: string,
 	): SubscriptionStatus {
@@ -336,25 +394,10 @@ export class StripePaymentProvider implements PaymentProviderInterface {
 	}
 
 	private getPlanAmount(planId: string, currency: 'BRL' | 'USD'): number {
-		// Valores em centavos (Stripe usa centavos)
-		// Busca dos planos definidos nas constantes
-		try {
-			const { PLANS } = require('@/constants/plans');
-			const plan = PLANS.find((p: any) => p.id === planId);
-			if (plan && plan.price) {
-				return (plan.price[currency] || 0) * 100; // Converter para centavos
-			}
-		} catch (error) {
-			// Se não conseguir importar, usa valores padrão
+		const plan = PLANS.find((p: any) => p.id === planId);
+		if (plan && plan.price) {
+			return (plan.price[currency] || 0) * 100;
 		}
-
-		// Fallback para valores padrão
-		const planPrices: Record<string, Record<'BRL' | 'USD', number>> = {
-			free: { BRL: 0, USD: 0 },
-			basic: { BRL: 2900, USD: 1000 }, // R$ 29.00 ou $10.00
-			pro: { BRL: 7900, USD: 2500 }, // R$ 79.00 ou $25.00
-		};
-
-		return planPrices[planId]?.[currency] || 0;
+		return 0;
 	}
 }

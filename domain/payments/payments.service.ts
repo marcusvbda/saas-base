@@ -1,257 +1,245 @@
 import PaymentsRepository from './payments.repository';
-import {
-	PaymentProvider,
-	PaymentProviderConfig,
-	PaymentProviderInterface,
-	CreateSubscriptionParams,
-	CreateSubscriptionResult,
-	CancelSubscriptionParams,
-	UpdateSubscriptionParams,
-	CreateCustomerParams,
-	CreateCustomerResult,
-	CreatePaymentMethodParams,
-	PaymentMethod,
-	Subscription,
-} from './types';
 import { StripePaymentProvider } from './providers/stripe.provider';
 
-export default class PaymentsService {
-	constructor(
-		private repository: PaymentsRepository = new PaymentsRepository(),
-	) {
-		//
-	}
+// Types and Interfaces
+export type PaymentProvider = 'stripe' | 'paypal' | 'mercadopago';
 
-	private createProvider(
-		config: PaymentProviderConfig,
-	): PaymentProviderInterface {
-		switch (config.provider) {
-			case 'stripe':
-				return new StripePaymentProvider(config);
-			default:
-				throw new Error(`Unknown payment provider: ${config.provider}`);
-		}
-	}
+export type SubscriptionStatus =
+	| 'active'
+	| 'canceled'
+	| 'past_due'
+	| 'trialing'
+	| 'incomplete'
+	| 'incomplete_expired'
+	| 'unpaid'
+	| 'paused';
 
-	async createCustomer(
-		config: PaymentProviderConfig,
-		params: CreateCustomerParams,
-	): Promise<CreateCustomerResult> {
-		const provider = this.createProvider(config);
-		return await provider.createCustomer(params);
-	}
+export interface PaymentProviderConfig {
+	provider: PaymentProvider;
+	apiKey: string;
+	apiSecret?: string;
+	webhookSecret?: string;
+	[key: string]: any;
+}
 
-	async createSubscription(
-		config: PaymentProviderConfig,
+export interface CreateCustomerParams {
+	userId: string;
+	email: string;
+	name?: string;
+	metadata?: Record<string, string>;
+}
+
+export interface CreateCustomerResult {
+	customerId: string;
+}
+
+export interface CreateSubscriptionParams {
+	userId: string;
+	planId: string;
+	currency: 'BRL' | 'USD';
+	paymentMethodId?: string;
+	customerId?: string;
+	metadata?: Record<string, string>;
+}
+
+export interface CreateSubscriptionResult {
+	subscriptionId: string;
+	providerSubscriptionId: string;
+	status: SubscriptionStatus;
+	clientSecret?: string;
+	currentPeriodStart: Date;
+	currentPeriodEnd: Date;
+	customerId: string;
+	paymentMethodId?: string;
+}
+
+export interface CreatePaymentMethodParams {
+	customerId: string;
+	paymentMethodId: string;
+	setAsDefault?: boolean;
+}
+
+export interface PaymentMethod {
+	id: string;
+	type: 'card' | 'bank_account' | 'other';
+	last4?: string;
+	brand?: string;
+	expMonth?: number;
+	expYear?: number;
+	isDefault: boolean;
+}
+
+export interface PaymentProviderInterface {
+	createCustomer(params: CreateCustomerParams): Promise<CreateCustomerResult>;
+	createSubscription(
 		params: CreateSubscriptionParams,
-	): Promise<CreateSubscriptionResult & { id: number }> {
-		const provider = this.createProvider(config);
-
-		let customerId = params.customerId;
-		if (!customerId) {
-			if (!params.metadata?.email) {
-				throw new Error(
-					'Email is required to create customer. Pass it in metadata.email or provide customerId',
-				);
-			}
-			const customer = await provider.createCustomer({
-				userId: params.userId,
-				email: params.metadata.email,
-				name: params.metadata.name,
-				metadata: params.metadata,
-			});
-			customerId = customer.customerId;
-		}
-
-		const subscriptionResult = await provider.createSubscription({
-			...params,
-			customerId,
-		});
-
-		const dbResult = await this.repository.createSubscription({
-			user_id: params.userId,
-			provider: config.provider,
-			provider_subscription_id: subscriptionResult.providerSubscriptionId,
-			provider_customer_id: customerId,
-			plan_id: params.planId,
-			status: subscriptionResult.status,
-			current_period_start: subscriptionResult.currentPeriodStart,
-			current_period_end: subscriptionResult.currentPeriodEnd,
-			provider_payment_method_id: subscriptionResult.paymentMethodId,
-			metadata: params.metadata,
-		});
-
-		return {
-			...subscriptionResult,
-			id: (dbResult as any).insertId,
-		};
-	}
-
-	async cancelSubscription(
-		config: PaymentProviderConfig,
-		params: CancelSubscriptionParams,
-	): Promise<void> {
-		const subscription = await this.repository.findSubscriptionById(
-			parseInt(params.subscriptionId),
-		);
-
-		if (!subscription) {
-			throw new Error('Subscription not found');
-		}
-
-		const provider = this.createProvider(config);
-		await provider.cancelSubscription({
-			subscriptionId: subscription.provider_subscription_id,
-			immediately: params.immediately,
-		});
-
-		await this.repository.updateSubscription(subscription.id, {
-			status: 'canceled',
-			canceled_at: params.immediately ? new Date() : null,
-		});
-	}
-
-	async updateSubscription(
-		config: PaymentProviderConfig,
-		params: UpdateSubscriptionParams,
-	): Promise<CreateSubscriptionResult> {
-		const subscription = await this.repository.findSubscriptionById(
-			parseInt(params.subscriptionId),
-		);
-
-		if (!subscription) {
-			throw new Error('Subscription not found');
-		}
-
-		const provider = this.createProvider(config);
-		const updatedSubscription = await provider.updateSubscription({
-			subscriptionId: subscription.provider_subscription_id,
-			planId: params.planId,
-			paymentMethodId: params.paymentMethodId,
-			metadata: params.metadata,
-		});
-
-		await this.repository.updateSubscription(subscription.id, {
-			status: updatedSubscription.status,
-			current_period_start: updatedSubscription.currentPeriodStart,
-			current_period_end: updatedSubscription.currentPeriodEnd,
-			provider_payment_method_id: updatedSubscription.paymentMethodId,
-			plan_id: params.planId || subscription.plan_id,
-			metadata: params.metadata,
-		});
-
-		return updatedSubscription;
-	}
-
-	async getSubscriptionById(id: number): Promise<Subscription | null> {
-		return await this.repository.findSubscriptionById(id);
-	}
-
-	async getSubscriptionByProviderId(
-		provider: PaymentProvider,
-		providerSubscriptionId: string,
-	): Promise<Subscription | null> {
-		return await this.repository.findSubscriptionByProviderId(
-			provider,
-			providerSubscriptionId,
-		);
-	}
-
-	async getActiveSubscriptionByUserId(
-		userId: string,
-	): Promise<Subscription | null> {
-		return await this.repository.findActiveSubscriptionByUserId(userId);
-	}
-
-	async getSubscriptionsByUserId(userId: string): Promise<Subscription[]> {
-		return await this.repository.findSubscriptionsByUserId(userId);
-	}
-
-	async syncSubscriptionStatus(
-		config: PaymentProviderConfig,
-		subscriptionId: number,
-	): Promise<Subscription> {
-		const subscription =
-			await this.repository.findSubscriptionById(subscriptionId);
-
-		if (!subscription) {
-			throw new Error('Subscription not found');
-		}
-
-		const provider = this.createProvider(config);
-		const providerSubscription = await provider.getSubscription(
-			subscription.provider_subscription_id,
-		);
-
-		// Atualizar no banco de dados
-		await this.repository.updateSubscription(subscription.id, {
-			status: providerSubscription.status,
-			current_period_start: providerSubscription.currentPeriodStart,
-			current_period_end: providerSubscription.currentPeriodEnd,
-			canceled_at: providerSubscription.canceledAt,
-		});
-
-		const updated = await this.repository.findSubscriptionById(subscriptionId);
-		if (!updated) {
-			throw new Error('Subscription not found after update');
-		}
-
-		return updated;
-	}
-
-	async createPaymentMethod(
-		config: PaymentProviderConfig,
+	): Promise<CreateSubscriptionResult>;
+	cancelSubscription(params: {
+		subscriptionId: string;
+		immediately?: boolean;
+	}): Promise<void>;
+	updateSubscription(params: {
+		subscriptionId: string;
+		planId?: string;
+		paymentMethodId?: string;
+		metadata?: Record<string, string>;
+	}): Promise<CreateSubscriptionResult>;
+	createPaymentMethod(
 		params: CreatePaymentMethodParams,
-	): Promise<PaymentMethod> {
-		const provider = this.createProvider(config);
-		return await provider.createPaymentMethod(params);
+	): Promise<PaymentMethod>;
+}
+
+export interface IPlan {
+	planId: string;
+	currency: string;
+	metadata: Record<string, string>;
+}
+
+export interface ISubscribeParams {
+	customerDetails: CreateCustomerParams;
+	plan: IPlan;
+}
+
+export interface IStripePaymentCard {
+	token: string;
+}
+
+export interface ICreateSubscription {
+	paymentMethodId: string;
+	customerId: string;
+}
+
+export interface CancelSubscriptionParams {
+	subscriptionId: string;
+	immediately?: boolean;
+}
+
+export interface UpdateSubscriptionParams {
+	subscriptionId: string;
+	planId?: string;
+	paymentMethodId?: string;
+	metadata?: Record<string, string>;
+}
+
+export default class PaymentsService {
+	protected repository: PaymentsRepository;
+	protected provider: PaymentProviderInterface | null = null;
+	protected providerConfig: PaymentProviderConfig | null = null;
+
+	constructor(protected selectedProvider: string = 'stripe') {
+		this.repository = new PaymentsRepository();
+		this.makeProvider();
 	}
 
-	async validateWebhook(
-		config: PaymentProviderConfig,
-		payload: string | Buffer,
-		signature: string,
-	): Promise<boolean> {
-		const provider = this.createProvider(config);
-		return await provider.validateWebhook(payload, signature);
+	makeProvider() {
+		if (this.selectedProvider === 'stripe') {
+			this.providerConfig = {
+				provider: 'stripe' as const,
+				apiKey: process.env.STRIPE_SECRET_KEY!,
+				webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
+			};
+			this.provider = new StripePaymentProvider(this.providerConfig);
+			return;
+		}
+
+		throw new Error(`Unknown payment provider: ${this.selectedProvider}`);
 	}
 
-	async handleWebhook(
-		config: PaymentProviderConfig,
-		event: any,
-	): Promise<{ type: string; subscription?: Subscription }> {
-		const provider = this.createProvider(config);
-		const webhookResult = await provider.handleWebhook(event);
+	selectProvider(provider: string) {
+		this.selectedProvider = provider;
+		this.makeProvider();
+	}
 
-		let subscription: Subscription | null = null;
-
-		if (webhookResult.subscriptionId) {
-			subscription = await this.repository.findSubscriptionByProviderId(
-				config.provider,
-				webhookResult.subscriptionId,
+	async subscribe({ customerDetails, plan }: ISubscribeParams) {
+		if (this.selectedProvider === 'stripe') {
+			const customer = await this.provider!.createCustomer(customerDetails);
+			// Tokens de teste: https://stripe.com/docs/testing#cards
+			// tok_visa, tok_mastercard, tok_amex, etc.
+			const paymentMethod = await this.createPaymenMethod(
+				{
+					token: 'tok_visa',
+				},
+				customer.customerId,
 			);
 
-			if (subscription) {
-				const providerSubscription = await provider.getSubscription(
-					webhookResult.subscriptionId,
-				);
+			const subscription = await this.createSubscription({
+				paymentMethodId: paymentMethod?.id,
+				customerId: customer.customerId,
+				planId: plan.planId,
+				currency: plan.currency as 'BRL' | 'USD',
+				metadata: plan.metadata,
+				userId: customerDetails.userId,
+			});
 
-				await this.repository.updateSubscription(subscription.id, {
-					status: providerSubscription.status,
-					current_period_start: providerSubscription.currentPeriodStart,
-					current_period_end: providerSubscription.currentPeriodEnd,
-					canceled_at: providerSubscription.canceledAt,
-				});
-
-				subscription = await this.repository.findSubscriptionById(
-					subscription.id,
-				);
-			}
+			return {
+				subscription,
+				paymentMethod,
+				customer,
+			};
 		}
+	}
 
-		return {
-			type: webhookResult.type,
-			subscription: subscription || undefined,
-		};
+	async createPaymenMethod(
+		paymentCard: IStripePaymentCard,
+		customerId: string,
+	) {
+		if (this.selectedProvider === 'stripe') {
+			const stripe = (this.provider as any).stripe;
+			const paymentMethodCreated = await stripe.paymentMethods.create({
+				type: 'card',
+				card: {
+					...paymentCard,
+				},
+			});
+			const paymentMethod = await this.provider!.createPaymentMethod({
+				customerId,
+				paymentMethodId: paymentMethodCreated.id,
+			});
+			return paymentMethod;
+		}
+	}
+
+	async createSubscription(params: CreateSubscriptionParams) {
+		const subscriptionResult = await this.provider!.createSubscription(params);
+		return subscriptionResult;
+	}
+
+	async cancelSubscription(params: CancelSubscriptionParams) {
+		if (this.selectedProvider === 'stripe') {
+			await this.provider!.cancelSubscription(params);
+			return;
+		}
+		throw new Error(
+			`Cancel subscription not implemented for provider: ${this.selectedProvider}`,
+		);
+	}
+
+	async updateSubscription(params: UpdateSubscriptionParams) {
+		if (this.selectedProvider === 'stripe') {
+			const subscriptionResult =
+				await this.provider!.updateSubscription(params);
+			return subscriptionResult;
+		}
+		throw new Error(
+			`Update subscription not implemented for provider: ${this.selectedProvider}`,
+		);
 	}
 }
+
+// usage example
+// const paymentService = new PaymentsService();
+// 	await paymentService.subscribe({
+// 		customerDetails: {
+// 			userId: session.user.id,
+// 			email: session.user.email || 'user@example.com',
+// 			name: session.user.name || 'User',
+// 		},
+// 		plan: {
+// 			planId: 'basic',
+// 			currency: 'BRL',
+// 			metadata: {
+// 				email: session.user.email || 'user@example.com',
+// 				name: session.user.name || 'User',
+// 			},
+// 		},
+// 	});
