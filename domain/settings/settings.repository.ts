@@ -1,4 +1,4 @@
-import Repository from '@/services/db/repository';
+import Repository from '@/db/repository';
 
 type SettingsData = {
 	timezone?: string | null;

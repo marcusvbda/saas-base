@@ -1,4 +1,4 @@
-import UserService from '@/domain/user/user.service';
+import UserService from '@/domain/users/users.service';
 import { notFound } from 'next/navigation';
 import ClientPage from './client-page';
 

@@ -9,7 +9,7 @@
 		"lint": "eslint",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
-		"migrate": "tsx services/db/migrate.ts"
+		"migrate": "tsx db/migrate.ts"
 	},
 	"dependencies": {
 		"@dnd-kit/core": "^6.3.1",
@@ -50,6 +50,7 @@
 		"recharts": "2.15.4",
 		"resend": "^6.7.0",
 		"sonner": "^2.0.7",
+		"stripe": "^20.2.0",
 		"tailwind-merge": "^3.4.0",
 		"vaul": "^1.1.2",
 		"zod": "^4.3.5",

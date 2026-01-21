@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import UserService from '@/domain/user/user.service';
+import UserService from '@/domain/users/users.service';
 
 export async function POST(request: NextRequest) {
 	const body = await request.json();

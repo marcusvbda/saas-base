@@ -1,12 +1,12 @@
-import BillingService from '@/domain/billing/billing.service';
+import UserService from '@/domain/users/users.service';
 import { requireServerAuth } from '@/lib/better-auth/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET() {
 	return requireServerAuth(async ({ session }) => {
 		try {
-			const billingService = new BillingService();
-			const billing = await billingService.getBillingByUserId(session.user.id);
+			const userService = new UserService();
+			const billing = await userService.getBillingByUserId(session.user.id);
 			return NextResponse.json({ data: billing || null }, { status: 200 });
 		} catch (error: any) {
 			return NextResponse.json(
@@ -82,8 +82,8 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
-			const billingService = new BillingService();
-			await billingService.upsertBilling(session.user.id, updateData);
+			const userService = new UserService();
+			await userService.upsertBilling(session.user.id, updateData);
 			return NextResponse.json(
 				{ data: { success: true, ...updateData } },
 				{ status: 200 },

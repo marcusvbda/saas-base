@@ -1,5 +1,5 @@
 import { resend } from '@/lib/resend';
-import UserRepository from './user.repository';
+import UserRepository from './users.repository';
 import { hashPassword } from 'better-auth/crypto';
 import jwt from 'jsonwebtoken';
 
@@ -87,5 +87,17 @@ export default class UserService {
 
 	async updateUserData(userId: string, data: { name?: string }) {
 		return await this.repository.updateUserData(userId, data);
+	}
+
+	async getBillingByUserId(userId: string) {
+		return this.repository.findBillingByUserId(userId);
+	}
+
+	async upsertBilling(userId: string, data: any) {
+		const billing = await this.repository.findBillingByUserId(userId);
+		if (billing) {
+			return await this.repository.updateBilling(billing.id, data);
+		}
+		await this.repository.createBilling(userId, data);
 	}
 }
