@@ -10,15 +10,8 @@ import AccountSettings from '@/components/account-settings';
 import GeneralSettings from '@/components/general-settings';
 import CredentialSettings from '@/components/credential-settngs';
 import PlanSettings from '@/components/plan-settings';
-import BillingSettings from '@/components/billing-settings';
 
-export const SettingsSections = [
-	'account',
-	'credentials',
-	'general',
-	'plan',
-	'billing',
-];
+export const SettingsSections = ['account', 'credentials', 'general', 'plan'];
 export type ISettingsSection = (typeof SettingsSections)[number];
 
 export default function SettingsPage() {
@@ -52,19 +45,16 @@ export default function SettingsPage() {
 						<Activity mode={activeSection === 'account' ? 'visible' : 'hidden'}>
 							<AccountSettings />
 						</Activity>
+						<Activity
+							mode={activeSection === 'credentials' ? 'visible' : 'hidden'}
+						>
+							<CredentialSettings />
+						</Activity>
 						<Activity mode={activeSection === 'general' ? 'visible' : 'hidden'}>
 							<GeneralSettings />
 						</Activity>
 						<Activity mode={activeSection === 'plan' ? 'visible' : 'hidden'}>
 							<PlanSettings />
-						</Activity>
-						<Activity mode={activeSection === 'billing' ? 'visible' : 'hidden'}>
-							<BillingSettings />
-						</Activity>
-						<Activity
-							mode={activeSection === 'credentials' ? 'visible' : 'hidden'}
-						>
-							<CredentialSettings />
 						</Activity>
 					</CardContent>
 				</Card>
