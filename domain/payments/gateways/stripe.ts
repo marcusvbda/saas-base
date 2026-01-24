@@ -135,4 +135,24 @@ export default class StripeGateway {
 	async cancelSubscription(subscription: any) {
 		await this.stripe.subscriptions.cancel(subscription.subscription_id);
 	}
+
+	async updateSubscription(
+		subscriptionId: string,
+		newPriceId: string,
+	): Promise<void> {
+		const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
+		const itemId = sub.items.data[0]?.id;
+		if (!itemId) {
+			throw new Error('Subscription has no items');
+		}
+		await this.stripe.subscriptions.update(subscriptionId, {
+			items: [
+				{
+					id: itemId,
+					price: newPriceId,
+				},
+			],
+			proration_behavior: 'create_prorations',
+		});
+	}
 }

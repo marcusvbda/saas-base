@@ -6,10 +6,12 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: Request) {
 	return requireServerAuth(async () => {
 		const body = await request.json();
-		const { metadata } = body;
+		const { metadata, currency } = body;
 		const paymentsService = new PaymentsService();
-		const checkoutSession =
-			await paymentsService.createSessionCheckout(metadata);
+		const checkoutSession = await paymentsService.createSessionCheckout(
+			metadata,
+			currency,
+		);
 		if (!checkoutSession?.client_secret) {
 			throw new Error('Checkout session not found');
 		}

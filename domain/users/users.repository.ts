@@ -136,6 +136,20 @@ export default class UserRepository extends Repository {
 		);
 	}
 
+	async getSubscriptionBySubscriptionId(subscriptionId: string) {
+		return await this.findOne(
+			'SELECT * FROM `user_subscriptions` WHERE `subscription_id` = :subscriptionId',
+			{ subscriptionId },
+		);
+	}
+
+	async deleteSubscriptionBySubscriptionId(subscriptionId: string) {
+		await this.execute(
+			'DELETE FROM `user_subscriptions` WHERE `subscription_id` = :subscriptionId',
+			{ subscriptionId },
+		);
+	}
+
 	async createSubscription(userId: string, data: any) {
 		await this.execute(
 			'INSERT INTO `user_subscriptions` (`user_id`, `plan`, `subscription_id`) VALUES (:userId, :plan, :subscription_id)',

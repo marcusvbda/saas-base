@@ -76,6 +76,7 @@ export default function PlanSelector({ value, onChange }: PlanSelectorProps) {
 								variant={isSelected ? 'default' : 'outline'}
 								className="w-full mt-auto"
 								onClick={(e) => {
+									if (isSelected) return;
 									e.preventDefault();
 									e.stopPropagation();
 									onChange(plan.id);

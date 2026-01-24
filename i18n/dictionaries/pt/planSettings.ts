@@ -22,8 +22,10 @@ const planSettings = {
 	'Subscribe to a plan': 'Assinar um Plano',
 	'Plan updated successfully': 'Plano atualizado com sucesso',
 	'Subscription canceled': 'Assinatura cancelada com sucesso',
-	'Are you sure you want to cancel your subscription?':
-		'Tem certeza que deseja cancelar sua assinatura?',
+	cancel: 'cancelar',
+	change: 'alterar',
+	'Are you sure you want to {action} your subscription?':
+		'Tem certeza que deseja {action} sua assinatura?',
 };
 
 export default planSettings;

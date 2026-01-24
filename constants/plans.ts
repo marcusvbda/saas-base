@@ -20,7 +20,7 @@ export const PLANS: Plan[] = [
 		id: 'basic',
 		name: 'Basic',
 		price: {
-			BRL: 29,
+			BRL: 14.99,
 			USD: 10,
 		},
 		features: [

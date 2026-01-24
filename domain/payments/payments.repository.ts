@@ -21,4 +21,25 @@ export default class PaymentsRepository extends Repository {
 			{ session_id: sessionId },
 		);
 	}
+
+	async updateCheckoutSession(sessionId: string, status: string) {
+		return await this.execute(
+			'UPDATE `checkout_sessions` SET `status` = :status, `updated_at` = CURRENT_TIMESTAMP WHERE `session_id` = :session_id',
+			{ session_id: sessionId, status },
+		);
+	}
+
+	async findCheckoutSessionBySubscriptionId(subscriptionId: string) {
+		return await this.findOne(
+			'SELECT * FROM `checkout_sessions` WHERE `resource_id` LIKE :subscription_id AND `resource_type` = :resource_type',
+			{ subscription_id: `%|${subscriptionId}%`, resource_type: 'plan_subscription' },
+		);
+	}
+
+	async findCheckoutSessionByUserIdAndType(userId: string, resourceType: string) {
+		return await this.findOne(
+			'SELECT * FROM `checkout_sessions` WHERE `resource_id` LIKE :userId AND `resource_type` = :resource_type ORDER BY `created_at` DESC LIMIT 1',
+			{ userId: `${userId}%`, resource_type: resourceType },
+		);
+	}
 }

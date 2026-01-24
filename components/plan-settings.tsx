@@ -11,7 +11,7 @@ import { useSystem } from '@/providers/system.provider';
 import { DEFAULT_PLAN } from '@/constants/plans';
 
 export default function PlanSettings() {
-	const { t } = useLocale();
+	const { t, locale } = useLocale();
 	const { session, setSession } = useSession();
 	const [plan, setPlan] = useState(session?.subscription);
 	const { startTransition } = useSystem();
@@ -23,7 +23,9 @@ export default function PlanSettings() {
 
 	const cancelSubscription = async () => {
 		const confirmed = window.confirm(
-			t('Are you sure you want to cancel your subscription?'),
+			t('Are you sure you want to {action} your subscription?', {
+				action: t('cancel'),
+			}),
 		);
 		if (!confirmed) return;
 		const response = await fetch(`/api/auth/subscription`, {
@@ -40,9 +42,42 @@ export default function PlanSettings() {
 
 	const handleSelectedPlan = (plan: string) => {
 		startTransition(async () => {
+			const currentPlan = session?.subscription;
+			if (plan === currentPlan) return;
+
 			if (plan === 'free') {
 				return await cancelSubscription();
 			}
+			const hasPaidSubscription = currentPlan && currentPlan !== 'free';
+			const isChangingPaidPlan = hasPaidSubscription && currentPlan !== plan;
+
+			const currency = locale === 'pt' ? 'BRL' : 'USD';
+			if (isChangingPaidPlan) {
+				const confirmed = window.confirm(
+					t('Are you sure you want to {action} your subscription?', {
+						action: t('change'),
+					}),
+				);
+				if (!confirmed) return;
+				const response = await fetch('/api/auth/subscription', {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ plan, currency }),
+				});
+				const data = await response.json();
+				if (!response.ok) {
+					toast.error(data?.error ?? t('Failed to update plan'));
+					return;
+				}
+				toast.success(t('Plan updated successfully'));
+				setPlan(plan);
+				await setSession({
+					...session,
+					subscription: plan,
+				});
+				return;
+			}
+
 			const response = await fetch('/api/checkout', {
 				method: 'POST',
 				body: JSON.stringify({
@@ -50,6 +85,7 @@ export default function PlanSettings() {
 						resource_type: 'plan_subscription',
 						resource_id: `${session?.user.id}|${plan}`,
 					},
+					currency,
 				}),
 			});
 			if (!response.ok) {

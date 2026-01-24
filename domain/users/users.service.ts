@@ -114,10 +114,18 @@ export default class UserService {
 	}
 
 	async cancelSubscription(userId: string) {
-		const subscription = this.getSubscriptionByUserId(userId);
+		const subscription = await this.getSubscriptionByUserId(userId);
 		if (!subscription) {
 			return;
 		}
 		await this.repository.cancelSubscription(subscription);
+	}
+
+	async getSubscriptionBySubscriptionId(subscriptionId: string) {
+		return this.repository.getSubscriptionBySubscriptionId(subscriptionId);
+	}
+
+	async deleteSubscriptionBySubscriptionId(subscriptionId: string) {
+		await this.repository.deleteSubscriptionBySubscriptionId(subscriptionId);
 	}
 }

@@ -20,7 +20,10 @@ export async function GET(request: NextRequest) {
 		const stripeSession =
 			await paymentsService.retrieveSessionCheckout(sessionId);
 
-		await paymentsService.deleteSessionCheckout(sessionId);
+		const status: string = stripeSession.payment_status;
+		if (status === 'paid') {
+			await paymentsService.updateCheckoutSessionStatus(sessionId, 'paid');
+		}
 
 		return await paymentsService.processResultSessionCheckout(
 			stripeSession,
