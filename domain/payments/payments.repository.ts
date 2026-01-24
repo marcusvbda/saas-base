@@ -1,4 +1,4 @@
-import Repository from '@/db/repository';
+import Repository from '@/database/repository';
 
 export default class PaymentsRepository extends Repository {
 	//

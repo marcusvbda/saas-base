@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, Suspense, useEffect, useState, useTransition } from 'react';
+import { FormEvent, Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { signIn, signOut } from '@/lib/better-auth/auth-client';
 import { z } from 'zod';
@@ -12,12 +12,13 @@ import {
 	FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { ButtonLoading } from '@/components/ui/button-loading';
 import { InputPassword } from '@/components/ui/input-password';
 import { toast } from 'sonner';
 import { LocaleLink } from '@/components/locale';
 import { useLocale } from '@/hooks/use-locale';
 import { SocialLoginProvider } from '@/components/social-login-provider';
+import { Button } from '@/components/ui/button';
+import { useSystem } from '@/providers/system.provider';
 
 const FragmentContent = () => {
 	useEffect(() => {
@@ -32,7 +33,7 @@ const FragmentContent = () => {
 	const searchParams = useSearchParams();
 	const redirect = searchParams.get('redirect') || '/';
 	const { router } = useLocale();
-	const [isPending, startTransition] = useTransition();
+	const { startTransition } = useSystem();
 	const [form, setForm] = useState<any>({
 		email: '',
 		password: '',
@@ -127,13 +128,9 @@ const FragmentContent = () => {
 								{t('Forgot your password')}
 							</LocaleLink>
 						</div>
-						<ButtonLoading
-							type="submit"
-							isLoading={isPending}
-							className="w-full"
-						>
+						<Button type="submit" className="w-full">
 							{t('Login')}
-						</ButtonLoading>
+						</Button>
 						<SocialLoginProvider />
 						<p className="text-center text-sm text-muted-foreground">
 							{t(`Don't have an account`)}?{' '}

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState, useTransition } from 'react';
+import { FormEvent, useState } from 'react';
 import { signUp } from '@/lib/better-auth/auth-client';
 import { z } from 'zod';
 import { getValidatedParams } from '@/helpers/common';
@@ -12,11 +12,12 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { InputPassword } from '@/components/ui/input-password';
-import { ButtonLoading } from '@/components/ui/button-loading';
 import { toast } from 'sonner';
 import { LocaleLink } from '@/components/locale';
 import { useLocale } from '@/hooks/use-locale';
 import { SocialLoginProvider } from '@/components/social-login-provider';
+import { Button } from '@/components/ui/button';
+import { useSystem } from '@/providers/system.provider';
 
 export default function RegisterPage() {
 	const { t } = useLocale();
@@ -42,7 +43,7 @@ export default function RegisterPage() {
 	});
 
 	const { router } = useLocale();
-	const [isPending, startTransition] = useTransition();
+	const { startTransition } = useSystem();
 
 	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
@@ -226,13 +227,9 @@ export default function RegisterPage() {
 								</FieldError>
 							</FieldContent>
 						</Field>
-						<ButtonLoading
-							type="submit"
-							isLoading={isPending}
-							className="w-full"
-						>
+						<Button type="submit" className="w-full">
 							{t('Register')}
-						</ButtonLoading>
+						</Button>
 						<SocialLoginProvider />
 						<p className="text-center text-sm text-muted-foreground">
 							{t('Has already an account')}?{' '}

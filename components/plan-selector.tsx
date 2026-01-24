@@ -3,12 +3,12 @@
 import { useLocale } from '@/hooks/use-locale';
 import { PLANS } from '@/constants/plans';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { CheckIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Plan } from '@/types/plans';
 import { formatPrice } from '@/helpers/money';
+import { Button } from './ui/button';
 
 interface PlanSelectorProps {
 	value: string;
@@ -81,7 +81,7 @@ export default function PlanSelector({ value, onChange }: PlanSelectorProps) {
 									onChange(plan.id);
 								}}
 							>
-								{isSelected ? t('Choose Plan') : t('Select')}
+								{isSelected ? t('Selected Plan') : t('Select')}
 							</Button>
 						</CardContent>
 					</Card>

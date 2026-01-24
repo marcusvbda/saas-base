@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState, useTransition } from 'react';
+import { FormEvent, useState } from 'react';
 import { z } from 'zod';
 import { getValidatedParams } from '@/helpers/common';
 import { toast } from 'sonner';
@@ -11,8 +11,9 @@ import {
 	FieldLabel,
 } from '@/components/ui/field';
 import { InputPassword } from '@/components/ui/input-password';
-import { ButtonLoading } from '@/components/ui/button-loading';
 import { useLocale } from '@/hooks/use-locale';
+import { Button } from '@/components/ui/button';
+import { useSystem } from '@/providers/system.provider';
 
 export default function ClientPage({ token }: { token: string }) {
 	const { t, router } = useLocale();
@@ -34,7 +35,7 @@ export default function ClientPage({ token }: { token: string }) {
 		confirmPassword: '',
 		errors: null,
 	});
-	const [isPending, startTransition] = useTransition();
+	const { startTransition } = useSystem();
 
 	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
@@ -196,13 +197,9 @@ export default function ClientPage({ token }: { token: string }) {
 								</FieldError>
 							</FieldContent>
 						</Field>
-						<ButtonLoading
-							type="submit"
-							isLoading={isPending}
-							className="w-full"
-						>
+						<Button type="submit" className="w-full">
 							{t('Update Password')}
-						</ButtonLoading>
+						</Button>
 					</form>
 				</div>
 			</div>

@@ -1,7 +1,7 @@
 'use client';
-import PlanGate from '@/components/plan-gate';
 import BasePage from './base-page';
 import { useLocale } from '@/hooks/use-locale';
+import PlanGate from '@/components/plan-gate';
 
 export default function DashboardPage() {
 	const { t } = useLocale();
@@ -12,7 +12,19 @@ export default function DashboardPage() {
 			title={t('Dashboard')}
 			description={t('Welcome to the dashboard')}
 		>
-			<PlanGate allowedPlans={['free']}>dashboard</PlanGate>
+			<PlanGate allowedPlans={['pro', 'basic']}>
+				TESTE PLAN GATE
+				{/* <SSEClient
+					eventName="clock"
+					route="/api/sse"
+					initialData={{
+						time: new Date().toISOString().split('T')[1].split('.')[0],
+					}}
+					render={(data: any) => {
+						return <>server time is {data?.time}</>;
+					}}
+				/> */}
+			</PlanGate>
 		</BasePage>
 	);
 }

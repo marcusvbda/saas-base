@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState, useTransition } from 'react';
+import { FormEvent, useState } from 'react';
 import {
 	Field,
 	FieldContent,
@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useLocale } from '@/hooks/use-locale';
-import { ButtonLoading } from './ui/button-loading';
 import { getValidatedParams } from '@/helpers/common';
 import { toast } from 'sonner';
 import { ISettingsSection, ISettingsField } from '@/types/settings';
@@ -24,6 +23,8 @@ import {
 	SelectValue,
 	SelectItem,
 } from '@/components/ui/select';
+import { useSystem } from '@/providers/system.provider';
+import { Button } from './ui/button';
 
 export default function SectionSettings({
 	validator = null,
@@ -36,7 +37,7 @@ export default function SectionSettings({
 	fields = null,
 }: ISettingsSection) {
 	const { t } = useLocale();
-	const [isPending, startTransition] = useTransition();
+	const { isPending, startTransition } = useSystem();
 	const [form, setForm] = useState<any>({
 		...initialData,
 		errors: null,
@@ -168,9 +169,9 @@ export default function SectionSettings({
 			</FieldGroup>
 
 			<div className="flex justify-end">
-				<ButtonLoading isLoading={isPending} type="submit">
+				<Button disabled={isPending} type="submit">
 					{t('Update {resource}', { resource })}
-				</ButtonLoading>
+				</Button>
 			</div>
 		</form>
 	);

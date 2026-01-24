@@ -1,56 +1,78 @@
 'use client';
 
-import SectionSettings from './section-settings';
-import { useLocale } from '@/hooks/use-locale';
 import { useSession } from '@/providers/session.provider';
-import { useEffect, useState } from 'react';
-import { DEFAULT_PLAN } from '@/constants/plans';
-import z from 'zod';
+import { useState } from 'react';
 import PlanSelector from './plan-selector';
+import { DEFAULT_PLAN } from '@/constants/plans';
+import { toast } from 'sonner';
+import { useLocale } from '@/hooks/use-locale';
+import { Sheet, SheetContent } from './ui/sheet';
+import CheckoutRender from './checkout-render';
+import { useSystem } from '@/providers/system.provider';
 
 export default function PlanSettings() {
 	const { t } = useLocale();
 	const { session, setSession } = useSession();
-	const [isClient, setIsClient] = useState(false);
+	const [plan, setPlan] = useState(session?.settings?.plan || DEFAULT_PLAN);
+	const { startTransition } = useSystem();
+	const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+	const [clientSecret, setClientSecret] = useState<string | null>(null);
 
-	useEffect(() => {
-		// eslint-disable-next-line react-hooks/set-state-in-effect
-		setIsClient(true);
-	}, []);
+	const definePlan = async (plan: string) => {
+		const response = await fetch(`/api/settings/general-update`, {
+			method: 'PUT',
+			body: JSON.stringify({ plan }),
+		});
+		await response.json();
+		setPlan(plan);
+		await setSession({
+			...session,
+			settings: { ...session?.settings, plan },
+		});
+	};
 
-	if (!isClient) return null;
+	const handleSelectedPlan = (plan: string) => {
+		startTransition(async () => {
+			if (plan === 'free') {
+				return await definePlan(plan);
+			}
+			const response = await fetch('/api/checkout', {
+				method: 'POST',
+				body: JSON.stringify({
+					metadata: {
+						resource: 'plan_subscription',
+						resourceId: plan,
+					},
+				}),
+			});
+			if (!response.ok) {
+				toast.error(t('Failed to create checkout session'));
+				return;
+			}
+			const { clientSecret } = await response.json();
+			if (clientSecret) {
+				setClientSecret(clientSecret);
+				setIsCheckoutOpen(true);
+			}
+		});
+	};
 
 	return (
-		<SectionSettings
-			resource={t('plan')}
-			apiPath="/api/settings/general-update"
-			validator={() => {
-				return z.object({
-					plan: z
-						.string()
-						.min(1, t('{field} is required', { field: t('Plan') })),
-				});
-			}}
-			initialData={{
-				plan: session?.settings?.plan || DEFAULT_PLAN,
-			}}
-			fields={[
-				{
-					label: t('Select your plan'),
-					name: 'plan',
-					type: 'custom',
-					component: PlanSelector,
-				},
-			]}
-			onSuccess={({ data }: any) => {
-				setSession({
-					...session,
-					settings: {
-						...session?.settings,
-						plan: data.plan,
-					},
-				});
-			}}
-		/>
+		<>
+			<PlanSelector
+				value={plan}
+				onChange={(plan) => handleSelectedPlan(plan)}
+			/>
+			<Sheet
+				open={isCheckoutOpen}
+				onOpenChange={(open) => {
+					setIsCheckoutOpen(open);
+				}}
+			>
+				<SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+					{clientSecret && <CheckoutRender clientSecret={clientSecret} />}
+				</SheetContent>
+			</Sheet>
+		</>
 	);
 }

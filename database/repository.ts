@@ -1,4 +1,4 @@
-import { database } from '@/db/connection';
+import { database } from '@/database/connection';
 import { Connection } from 'mysql2/promise';
 
 export default class Repository {

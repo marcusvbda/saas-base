@@ -52,7 +52,7 @@ async function migrate() {
         )
     `);
 
-	const dir = path.join(process.cwd(), 'db/migrations');
+	const dir = path.join(process.cwd(), 'database/migrations');
 	const files = fs.readdirSync(dir).sort();
 
 	const [rows] = await database.query('SELECT name FROM migrations');

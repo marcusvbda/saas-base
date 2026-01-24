@@ -13,6 +13,7 @@ import billingSettings from './billingSettings';
 import navigation from './navigation';
 import socialLogin from './socialLogin';
 import languageSelector from './languageSelector';
+import checkout from './checkout';
 
 export default {
 	...common,
@@ -30,4 +31,5 @@ export default {
 	...navigation,
 	...socialLogin,
 	...languageSelector,
+	...checkout,
 } as const;

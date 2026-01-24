@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState, useTransition } from 'react';
+import { FormEvent, useState } from 'react';
 import { z } from 'zod';
 import { getValidatedParams } from '@/helpers/common';
 import { forgotPassword } from '@/lib/better-auth/auth-client';
@@ -12,9 +12,10 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { LocaleLink } from '@/components/locale';
-import { ButtonLoading } from '@/components/ui/button-loading';
 import { toast } from 'sonner';
 import { useLocale } from '@/hooks/use-locale';
+import { Button } from '@/components/ui/button';
+import { useSystem } from '@/providers/system.provider';
 
 export default function ForgotPasswordPage() {
 	const { t } = useLocale();
@@ -26,7 +27,7 @@ export default function ForgotPasswordPage() {
 		email: '',
 		errors: null,
 	});
-	const [isPending, startTransition] = useTransition();
+	const { startTransition } = useSystem();
 	const { router } = useLocale();
 
 	const handleSubmit = async (e: FormEvent) => {
@@ -96,13 +97,9 @@ export default function ForgotPasswordPage() {
 								</FieldError>
 							</FieldContent>
 						</Field>
-						<ButtonLoading
-							type="submit"
-							isLoading={isPending}
-							className="w-full"
-						>
+						<Button type="submit" className="w-full">
 							{t('Send reset password email')}
-						</ButtonLoading>
+						</Button>
 						<div className="text-center">
 							<LocaleLink
 								href="/sign-in"
