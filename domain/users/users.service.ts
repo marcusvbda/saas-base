@@ -100,4 +100,24 @@ export default class UserService {
 		}
 		await this.repository.createBilling(userId, data);
 	}
+
+	async getSubscriptionByUserId(userId: string) {
+		return this.repository.getSubscriptionByUserId(userId);
+	}
+
+	async upsertSubscription(userId: string, data: any) {
+		const subscription = await this.repository.getSubscriptionByUserId(userId);
+		if (subscription) {
+			return await this.repository.updateSubscription(subscription.id, data);
+		}
+		await this.repository.createSubscription(userId, data);
+	}
+
+	async cancelSubscription(userId: string) {
+		const subscription = this.getSubscriptionByUserId(userId);
+		if (!subscription) {
+			return;
+		}
+		await this.repository.cancelSubscription(subscription);
+	}
 }

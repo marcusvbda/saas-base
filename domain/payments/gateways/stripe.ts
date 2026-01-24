@@ -126,4 +126,13 @@ export default class StripeGateway {
 
 		return priceId;
 	}
+
+	async retrieveSessionCheckout(sessionId: string) {
+		const session = await this.stripe.checkout.sessions.retrieve(sessionId);
+		return session;
+	}
+
+	async cancelSubscription(subscription: any) {
+		await this.stripe.subscriptions.cancel(subscription.subscription_id);
+	}
 }

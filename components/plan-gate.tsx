@@ -1,5 +1,4 @@
 'use client';
-import { DEFAULT_PLAN } from '@/constants/plans';
 import { useLocale } from '@/hooks/use-locale';
 import { useSession } from '@/providers/session.provider';
 import { PlanType } from '@/types/plans';
@@ -20,7 +19,8 @@ export default function PlanGate({
 }: IProps) {
 	const { session } = useSession();
 	const { t, router } = useLocale();
-	const currentPlan: PlanType = session?.settings?.plan || DEFAULT_PLAN;
+	const currentPlan: PlanType = session?.subscription;
+
 	const planIsAllowed = (plan: PlanType) => {
 		if (allowedPlans === 'all') {
 			return true;

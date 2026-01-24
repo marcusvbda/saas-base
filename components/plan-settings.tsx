@@ -3,17 +3,17 @@
 import { useSession } from '@/providers/session.provider';
 import { useState } from 'react';
 import PlanSelector from './plan-selector';
-import { DEFAULT_PLAN } from '@/constants/plans';
 import { toast } from 'sonner';
 import { useLocale } from '@/hooks/use-locale';
 import { Sheet, SheetContent } from './ui/sheet';
 import CheckoutRender from './checkout-render';
 import { useSystem } from '@/providers/system.provider';
+import { DEFAULT_PLAN } from '@/constants/plans';
 
 export default function PlanSettings() {
 	const { t } = useLocale();
 	const { session, setSession } = useSession();
-	const [plan, setPlan] = useState(session?.settings?.plan || DEFAULT_PLAN);
+	const [plan, setPlan] = useState(session?.subscription);
 	const { startTransition } = useSystem();
 	const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 	const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -21,23 +21,27 @@ export default function PlanSettings() {
 		null,
 	);
 
-	const definePlan = async (plan: string) => {
-		const response = await fetch(`/api/settings/general-update`, {
-			method: 'PUT',
-			body: JSON.stringify({ plan }),
+	const cancelSubscription = async () => {
+		const confirmed = window.confirm(
+			t('Are you sure you want to cancel your subscription?'),
+		);
+		if (!confirmed) return;
+		const response = await fetch(`/api/auth/subscription`, {
+			method: 'DELETE',
 		});
 		await response.json();
-		setPlan(plan);
+		toast.success(t('Subscription canceled'));
+		setPlan(DEFAULT_PLAN);
 		await setSession({
 			...session,
-			settings: { ...session?.settings, plan },
+			subscription: DEFAULT_PLAN,
 		});
 	};
 
 	const handleSelectedPlan = (plan: string) => {
 		startTransition(async () => {
 			if (plan === 'free') {
-				return await definePlan(plan);
+				return await cancelSubscription();
 			}
 			const response = await fetch('/api/checkout', {
 				method: 'POST',

@@ -1,4 +1,5 @@
 import Repository from '@/database/repository';
+import StripeGateway from '../payments/gateways/stripe';
 
 type BillingData = {
 	card_number?: string | null;
@@ -126,5 +127,35 @@ export default class UserRepository extends Repository {
 			`UPDATE \`user_billing\` SET ${updates.join(', ')} WHERE \`id\` = :id`,
 			params,
 		);
+	}
+
+	async getSubscriptionByUserId(userId: string) {
+		return await this.findOne(
+			'SELECT * FROM `user_subscriptions` WHERE `user_id` = :userId',
+			{ userId },
+		);
+	}
+
+	async createSubscription(userId: string, data: any) {
+		await this.execute(
+			'INSERT INTO `user_subscriptions` (`user_id`, `plan`, `subscription_id`) VALUES (:userId, :plan, :subscription_id)',
+			{ userId, plan: data.plan, subscription_id: data.subscription_id },
+		);
+	}
+
+	async updateSubscription(id: number, data: any) {
+		await this.execute(
+			'UPDATE `user_subscriptions` SET `plan` = :plan, `subscription_id` = :subscription_id WHERE `id` = :id',
+			{ id, plan: data.plan, subscription_id: data.subscription_id },
+		);
+	}
+
+	async cancelSubscription(subscription: any) {
+		await this.execute('DELETE FROM `user_subscriptions` WHERE `id` = :id', {
+			id: subscription.id,
+		});
+
+		const stripeGateway = new StripeGateway();
+		await stripeGateway.cancelSubscription(subscription);
 	}
 }

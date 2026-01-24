@@ -14,4 +14,11 @@ export default class PaymentsRepository extends Repository {
 			{ session_id: sessionId },
 		);
 	}
+
+	async findCheckoutSession(sessionId: string) {
+		return await this.findOne(
+			'SELECT * FROM `checkout_sessions` WHERE `session_id` = :session_id',
+			{ session_id: sessionId },
+		);
+	}
 }

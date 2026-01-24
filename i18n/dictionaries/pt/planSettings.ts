@@ -20,6 +20,10 @@ const planSettings = {
 		'Esta funcionalidade não está disponível para seu plano. Atualize seu plano para acessar esta funcionalidade',
 	'Upgrade Plan': 'Atualizar Plano',
 	'Subscribe to a plan': 'Assinar um Plano',
+	'Plan updated successfully': 'Plano atualizado com sucesso',
+	'Subscription canceled': 'Assinatura cancelada com sucesso',
+	'Are you sure you want to cancel your subscription?':
+		'Tem certeza que deseja cancelar sua assinatura?',
 };
 
 export default planSettings;
