@@ -66,11 +66,19 @@ export default class PaymentsService {
 	}
 
 	async findCheckoutSessionBySubscriptionId(subscriptionId: string) {
-		return await this.repository.findCheckoutSessionBySubscriptionId(subscriptionId);
+		return await this.repository.findCheckoutSessionBySubscriptionId(
+			subscriptionId,
+		);
 	}
 
-	async findCheckoutSessionByUserIdAndType(userId: string, resourceType: string) {
-		return await this.repository.findCheckoutSessionByUserIdAndType(userId, resourceType);
+	async findCheckoutSessionByUserIdAndType(
+		userId: string,
+		resourceType: string,
+	) {
+		return await this.repository.findCheckoutSessionByUserIdAndType(
+			userId,
+			resourceType,
+		);
 	}
 
 	async findCheckoutSessionBySessionId(sessionId: string) {
@@ -155,5 +163,13 @@ export default class PaymentsService {
 
 		const result = await resources[resourceType]();
 		return result;
+	}
+
+	async retrieveInvoice(invoiceId: string) {
+		return await this.gateway.retrieveInvoice(invoiceId);
+	}
+
+	async retrieveSubscription(subscriptionId: string) {
+		return await this.gateway.retrieveSubscription(subscriptionId);
 	}
 }

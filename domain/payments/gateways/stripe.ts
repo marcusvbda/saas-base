@@ -15,8 +15,9 @@ export default class StripeGateway {
 		const stripeSession = await this.stripe.checkout.sessions.create({
 			ui_mode: 'embedded',
 			line_items: items,
-			metadata: {
-				...metadata,
+			metadata,
+			subscription_data: {
+				metadata,
 			},
 			return_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/checkout/callback?session_id={CHECKOUT_SESSION_ID}`,
 			mode,
@@ -154,5 +155,16 @@ export default class StripeGateway {
 			],
 			proration_behavior: 'create_prorations',
 		});
+	}
+
+	async retrieveInvoice(invoiceId: string) {
+		const invoice = await this.stripe.invoices.retrieve(invoiceId);
+		return invoice;
+	}
+
+	async retrieveSubscription(subscriptionId: string) {
+		const subscription =
+			await this.stripe.subscriptions.retrieve(subscriptionId);
+		return subscription;
 	}
 }
