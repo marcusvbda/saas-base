@@ -26,11 +26,14 @@ export default class PaymentsService {
 			items,
 			metadata,
 		);
+		await this.repository.createCheckoutSession({
+			...metadata,
+			session_id: checkoutSession.id,
+		});
 		return checkoutSession;
 	}
 
 	async deleteSessionCheckout(sessionId: string) {
-		// TODO: Implement delete session checkout
-		return { message: `Checkout session ${sessionId} deleted` };
+		await this.repository.deleteCheckoutSession(sessionId);
 	}
 }

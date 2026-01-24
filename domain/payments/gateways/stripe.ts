@@ -18,7 +18,7 @@ export default class StripeGateway {
 			metadata: {
 				...metadata,
 			},
-			return_url: process.env.STRIPE_WEBHOOK_SECRET!,
+			return_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/checkout/callback?session_id={CHECKOUT_SESSION_ID}`,
 			mode,
 		});
 		return stripeSession;

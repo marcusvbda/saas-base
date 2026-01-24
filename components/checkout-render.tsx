@@ -5,13 +5,14 @@ import { useEffect, useRef } from 'react';
 
 interface IProps {
 	clientSecret: string;
+	sessionId: string;
 }
 
 const stripePromise = loadStripe(
 	process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '',
 );
 
-export default function CheckoutRender({ clientSecret }: IProps) {
+export default function CheckoutRender({ clientSecret, sessionId }: IProps) {
 	const checkoutRef = useRef<HTMLDivElement>(null);
 	const { startTransition } = useSystem();
 
@@ -34,13 +35,13 @@ export default function CheckoutRender({ clientSecret }: IProps) {
 				await fetch('/api/checkout', {
 					method: 'DELETE',
 					body: JSON.stringify({
-						metadata: { sessionId: clientSecret },
+						metadata: { sessionId },
 					}),
 				});
 			});
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [clientSecret]);
+	}, [clientSecret, sessionId]);
 
 	return <div ref={checkoutRef} className="w-full" />;
 }

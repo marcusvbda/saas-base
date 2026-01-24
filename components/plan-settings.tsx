@@ -17,6 +17,9 @@ export default function PlanSettings() {
 	const { startTransition } = useSystem();
 	const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 	const [clientSecret, setClientSecret] = useState<string | null>(null);
+	const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(
+		null,
+	);
 
 	const definePlan = async (plan: string) => {
 		const response = await fetch(`/api/settings/general-update`, {
@@ -40,8 +43,8 @@ export default function PlanSettings() {
 				method: 'POST',
 				body: JSON.stringify({
 					metadata: {
-						resource: 'plan_subscription',
-						resourceId: plan,
+						resource_type: 'plan_subscription',
+						resource_id: `${session?.user.id}|${plan}`,
 					},
 				}),
 			});
@@ -49,9 +52,10 @@ export default function PlanSettings() {
 				toast.error(t('Failed to create checkout session'));
 				return;
 			}
-			const { clientSecret } = await response.json();
-			if (clientSecret) {
+			const { clientSecret, sessionId } = await response.json();
+			if (clientSecret && sessionId) {
 				setClientSecret(clientSecret);
+				setCheckoutSessionId(sessionId);
 				setIsCheckoutOpen(true);
 			}
 		});
@@ -67,10 +71,19 @@ export default function PlanSettings() {
 				open={isCheckoutOpen}
 				onOpenChange={(open) => {
 					setIsCheckoutOpen(open);
+					if (!open) {
+						setClientSecret(null);
+						setCheckoutSessionId(null);
+					}
 				}}
 			>
 				<SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-					{clientSecret && <CheckoutRender clientSecret={clientSecret} />}
+					{clientSecret && checkoutSessionId && (
+						<CheckoutRender
+							clientSecret={clientSecret}
+							sessionId={checkoutSessionId}
+						/>
+					)}
 				</SheetContent>
 			</Sheet>
 		</>
