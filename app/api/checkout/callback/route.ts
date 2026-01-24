@@ -1,5 +1,4 @@
 import PaymentsService from '@/domain/payments/payments.service';
-import UserService from '@/domain/users/users.service';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -38,12 +37,18 @@ export async function GET(request: NextRequest) {
 	}
 }
 
+export const PAID_EVENT = 'invoice.paid';
+export const FAILED_EVENT = 'invoice.payment_failed';
+export const REFUNDED_EVENT = 'refund.created';
+
 export async function POST(request: NextRequest) {
 	try {
 		const body = await request.json();
-		const allowedEvents = ['invoice_payment.paid'];
+		const allowedEvents = [PAID_EVENT, FAILED_EVENT, REFUNDED_EVENT];
+
 		const isEvent = body?.object === 'event';
-		const isAllowedEvent = allowedEvents.includes(body?.type);
+		const eventType: string = body?.type || '';
+		const isAllowedEvent = allowedEvents.includes(eventType);
 		if (!isEvent || !isAllowedEvent) {
 			return NextResponse.json(
 				{ message: 'Webhook not allowed' },
@@ -51,18 +56,41 @@ export async function POST(request: NextRequest) {
 			);
 		}
 		const paymentsService = new PaymentsService();
-		const userService = new UserService();
-		const invoice: any = await paymentsService.retrieveInvoice(
-			body.data.object.invoice,
-		);
-		const subscriptionIdFromInvoice =
-			invoice?.parent?.subscription_details?.subscription;
-		const subscription = await paymentsService.retrieveSubscription(
-			subscriptionIdFromInvoice,
-		);
-		const metadata = subscription?.metadata || {};
 
-		console.log(metadata);
+		if (eventType.startsWith('invoice.')) {
+			const invoice: any = await paymentsService.retrieveInvoice(
+				body?.data?.object?.id,
+			);
+
+			const subscriptionIdFromInvoice =
+				invoice?.parent?.subscription_details?.subscription;
+
+			if (subscriptionIdFromInvoice) {
+				const subscription = await paymentsService.retrieveSubscription(
+					subscriptionIdFromInvoice,
+				);
+
+				if (subscription) {
+					if (eventType === PAID_EVENT) {
+						const metadata = subscription?.metadata || {};
+						const resourceId = metadata.resource_id;
+						if (resourceId) {
+							await paymentsService.processResultInvoice(
+								resourceId,
+								subscriptionIdFromInvoice,
+							);
+						}
+					}
+					if (eventType === REFUNDED_EVENT) {
+						console.log('refunded', subscription);
+					}
+				}
+			}
+		}
+
+		if (eventType.startsWith('refund.')) {
+			console.log('refund');
+		}
 
 		return NextResponse.json({ message: 'Webhook received' }, { status: 200 });
 	} catch (error) {

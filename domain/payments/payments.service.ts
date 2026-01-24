@@ -140,13 +140,7 @@ export default class PaymentsService {
 						{ status: 400 },
 					);
 				}
-				const splitted = resourceId.split('|');
-				const planName = splitted[1];
-				const userId = splitted[0];
-				await this.userService.upsertSubscription(userId, {
-					plan: planName,
-					subscription_id: subscriptionId,
-				});
+				this.processResultInvoice(resourceId, subscriptionId);
 				const message = JSON.stringify({
 					type: 'success',
 					message: 'Plan updated successfully',
@@ -163,6 +157,17 @@ export default class PaymentsService {
 
 		const result = await resources[resourceType]();
 		return result;
+	}
+
+	async processResultInvoice(resourceId: string, subscriptionId: string) {
+		const splitted = resourceId.split('|');
+		const userId = splitted[0];
+		const planName = splitted[1];
+
+		await this.userService.upsertSubscription(userId, {
+			plan: planName,
+			subscription_id: subscriptionId,
+		});
 	}
 
 	async retrieveInvoice(invoiceId: string) {

@@ -159,8 +159,12 @@ export default class UserRepository extends Repository {
 
 	async updateSubscription(id: number, data: any) {
 		await this.execute(
-			'UPDATE `user_subscriptions` SET `plan` = :plan, `subscription_id` = :subscription_id WHERE `id` = :id',
-			{ id, plan: data.plan, subscription_id: data.subscription_id },
+			'UPDATE `user_subscriptions` SET `plan` = :plan, `subscription_id` = :subscription_id, `updated_at` = CURRENT_TIMESTAMP WHERE `id` = :id',
+			{
+				id,
+				plan: data.plan,
+				subscription_id: data.subscription_id,
+			},
 		);
 	}
 
