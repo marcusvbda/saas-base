@@ -22,7 +22,7 @@ export const SystemProvider = ({
 			value={{ locale, dictionary, pathname, isPending, startTransition }}
 		>
 			{isPending && (
-				<div className="absolute inset-0 flex items-center justify-center bg-black/10 z-100 cursor-progress">
+				<div className="absolute inset-0 flex items-center justify-center bg-black/20 z-100 cursor-progress">
 					<Loading />
 				</div>
 			)}

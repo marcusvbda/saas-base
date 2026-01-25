@@ -1,5 +1,14 @@
 import Stripe from 'stripe';
 
+export type CheckoutSessionOptions = {
+	mode: 'subscription' | 'payment';
+	items: { price: string; quantity: number }[];
+	metadata: Record<string, string>;
+	customerId?: string | null;
+	customerEmail?: string | null;
+	locale?: 'pt' | 'en' | 'auto';
+};
+
 export default class StripeGateway {
 	private stripe: Stripe;
 
@@ -7,21 +16,56 @@ export default class StripeGateway {
 		this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 	}
 
-	async createSessionCheckout(
-		mode: 'subscription' | 'payment',
-		items: { price: string; quantity: number }[],
-		metadata: any = {},
-	) {
-		const stripeSession = await this.stripe.checkout.sessions.create({
+	async findOrCreateCustomer(
+		email: string,
+		metadata?: Record<string, string>,
+	): Promise<string> {
+		const existing = await this.stripe.customers.list({
+			email,
+			limit: 1,
+		});
+		if (existing.data.length > 0) {
+			return existing.data[0].id;
+		}
+		const customer = await this.stripe.customers.create({
+			email,
+			metadata: metadata ?? {},
+		});
+		return customer.id;
+	}
+
+	async createSessionCheckout(options: CheckoutSessionOptions) {
+		const {
+			mode,
+			items,
+			metadata,
+			customerId,
+			customerEmail,
+			locale = 'auto',
+		} = options;
+
+		const baseUrl =
+			process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000';
+		const returnUrl = `${baseUrl}/api/checkout/callback?session_id={CHECKOUT_SESSION_ID}`;
+
+		const sessionParams: Stripe.Checkout.SessionCreateParams = {
 			ui_mode: 'embedded',
 			line_items: items,
 			metadata,
-			subscription_data: {
-				metadata,
-			},
-			return_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/checkout/callback?session_id={CHECKOUT_SESSION_ID}`,
+			subscription_data: { metadata },
+			return_url: returnUrl,
 			mode,
-		});
+			locale: locale === 'auto' ? undefined : locale,
+		};
+
+		if (customerId) {
+			sessionParams.customer = customerId;
+		} else if (customerEmail) {
+			sessionParams.customer_email = customerEmail;
+		}
+
+		const stripeSession =
+			await this.stripe.checkout.sessions.create(sessionParams);
 		return stripeSession;
 	}
 
@@ -133,8 +177,8 @@ export default class StripeGateway {
 		return session;
 	}
 
-	async cancelSubscription(subscription: any) {
-		await this.stripe.subscriptions.cancel(subscription.subscription_id);
+	async cancelSubscription(subscriptionId: string): Promise<void> {
+		await this.stripe.subscriptions.cancel(subscriptionId);
 	}
 
 	async updateSubscription(
@@ -162,9 +206,11 @@ export default class StripeGateway {
 		return invoice;
 	}
 
-	async retrieveSubscription(subscriptionId: string) {
+	async retrieveSubscription(
+		subscriptionId: string,
+	): Promise<Stripe.Subscription> {
 		const subscription =
 			await this.stripe.subscriptions.retrieve(subscriptionId);
-		return subscription;
+		return subscription as Stripe.Subscription;
 	}
 }

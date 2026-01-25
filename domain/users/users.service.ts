@@ -128,4 +128,23 @@ export default class UserService {
 	async deleteSubscriptionBySubscriptionId(subscriptionId: string) {
 		await this.repository.deleteSubscriptionBySubscriptionId(subscriptionId);
 	}
+
+	async updateSubscriptionStatus(userId: string, status: string) {
+		const sub = await this.repository.getSubscriptionByUserId(userId);
+		if (sub) {
+			await this.repository.updateSubscription(sub.id, { status });
+		}
+	}
+
+	async updateSubscriptionFields(
+		subscriptionRowId: number,
+		data: {
+			status?: string;
+			current_period_start?: Date | null;
+			current_period_end?: Date | null;
+			cancel_at_period_end?: boolean;
+		},
+	) {
+		await this.repository.updateSubscription(subscriptionRowId, data);
+	}
 }

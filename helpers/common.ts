@@ -1,3 +1,6 @@
+export const currencyFromLocale = (locale: string): 'BRL' | 'USD' =>
+	locale === 'pt' || locale === 'pt-BR' ? 'BRL' : 'USD';
+
 export const getValidatedParams = async (
 	params: any,
 	validator: any,

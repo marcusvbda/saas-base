@@ -40,6 +40,59 @@ export default function PlanSettings() {
 		});
 	};
 
+	const updateSubscription = async (plan: string, currency: 'BRL' | 'USD') => {
+		const confirmed = window.confirm(
+			t('Are you sure you want to {action} your subscription?', {
+				action: t('change'),
+			}),
+		);
+		if (!confirmed) return;
+		const response = await fetch('/api/auth/subscription', {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ plan, currency }),
+		});
+		const data = await response.json();
+		if (!response.ok) {
+			toast.error(data?.error ?? t('Failed to update plan'));
+			return;
+		}
+		toast.success(t('Plan updated successfully'));
+		setPlan(plan);
+		await setSession({
+			...session,
+			subscription: plan,
+		});
+	};
+
+	const createCheckoutSession = async (
+		plan: string,
+		currency: 'BRL' | 'USD',
+	) => {
+		const response = await fetch('/api/checkout', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				metadata: {
+					resource_type: 'plan_subscription',
+					resource_id: `${session?.user.id}|${plan}`,
+				},
+				locale,
+				currency,
+			}),
+		});
+		if (!response.ok) {
+			toast.error(t('Failed to create checkout session'));
+			return;
+		}
+		const { clientSecret, sessionId } = await response.json();
+		if (clientSecret && sessionId) {
+			setClientSecret(clientSecret);
+			setCheckoutSessionId(sessionId);
+			setIsCheckoutOpen(true);
+		}
+	};
+
 	const handleSelectedPlan = (plan: string) => {
 		startTransition(async () => {
 			const currentPlan = session?.subscription;
@@ -53,51 +106,11 @@ export default function PlanSettings() {
 
 			const currency = locale === 'pt' ? 'BRL' : 'USD';
 			if (isChangingPaidPlan) {
-				const confirmed = window.confirm(
-					t('Are you sure you want to {action} your subscription?', {
-						action: t('change'),
-					}),
-				);
-				if (!confirmed) return;
-				const response = await fetch('/api/auth/subscription', {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ plan, currency }),
-				});
-				const data = await response.json();
-				if (!response.ok) {
-					toast.error(data?.error ?? t('Failed to update plan'));
-					return;
-				}
-				toast.success(t('Plan updated successfully'));
-				setPlan(plan);
-				await setSession({
-					...session,
-					subscription: plan,
-				});
+				await updateSubscription(plan, currency);
 				return;
 			}
 
-			const response = await fetch('/api/checkout', {
-				method: 'POST',
-				body: JSON.stringify({
-					metadata: {
-						resource_type: 'plan_subscription',
-						resource_id: `${session?.user.id}|${plan}`,
-					},
-					currency,
-				}),
-			});
-			if (!response.ok) {
-				toast.error(t('Failed to create checkout session'));
-				return;
-			}
-			const { clientSecret, sessionId } = await response.json();
-			if (clientSecret && sessionId) {
-				setClientSecret(clientSecret);
-				setCheckoutSessionId(sessionId);
-				setIsCheckoutOpen(true);
-			}
+			await createCheckoutSession(plan, currency);
 		});
 	};
 

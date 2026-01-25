@@ -36,6 +36,8 @@ export default function CheckoutRender({ clientSecret, sessionId }: IProps) {
 			startTransition(async () => {
 				await fetch('/api/checkout', {
 					method: 'DELETE',
+					headers: { 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
 					body: JSON.stringify({
 						metadata: { sessionId },
 					}),

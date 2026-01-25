@@ -1,55 +1,79 @@
 import { NextResponse } from 'next/server';
+import type Stripe from 'stripe';
 import StripeGateway from './gateways/stripe';
 import PaymentsRepository from './payments.repository';
+import WebhooksRepository from './webhooks.repository';
 import UserService from '../users/users.service';
 import { DEFAULT_PLAN, PLANS } from '@/constants/plans';
+
+const WEBHOOK_EVENTS = [
+	'checkout.session.completed',
+	'invoice.payment_succeeded',
+	'invoice.payment_failed',
+	'customer.subscription.updated',
+	'customer.subscription.deleted',
+	'charge.refunded',
+] as const;
+
+export const ALLOWED_RESOURCE_TYPES = ['plan_subscription'];
 
 export default class PaymentsService {
 	private gateway: StripeGateway;
 	private userService: UserService;
 	constructor(
 		private repository: PaymentsRepository = new PaymentsRepository(),
+		private webhooksRepo: WebhooksRepository = new WebhooksRepository(),
 	) {
 		this.gateway = new StripeGateway();
 		this.userService = new UserService();
 	}
 
-	async prepareItems(metadata: any, currency: 'BRL' | 'USD') {
+	async prepareItems(
+		metadata: Record<string, string>,
+		currency: 'BRL' | 'USD',
+	): Promise<{ price: string; quantity: number }[]> {
 		const { resource_type, resource_id } = metadata;
-		const resources: any = {
-			plan_subscription: async () => {
-				const splitted = resource_id.split('|');
-				const planName = splitted[1];
-				const planConfig = PLANS.find((p) => p.id === planName);
-				if (!planConfig) {
-					throw new Error(`Unknown plan: ${planName}`);
-				}
-				const amount = planConfig.price[currency];
-				const items = [
-					{
-						price: await this.gateway.getOrCreatePrice(
-							planConfig.name,
-							amount,
-							currency,
-							'month',
-						),
-						quantity: 1,
-					},
-				];
-				return items;
-			},
-		};
-		const result = await resources[resource_type]();
-		return result;
+		if (resource_type !== 'plan_subscription') {
+			throw new Error(`Unknown resource_type: ${resource_type}`);
+		}
+		const planName = resource_id.split('|')[1];
+		const planConfig = PLANS.find((p) => p.id === planName);
+		if (!planConfig) {
+			throw new Error(`Unknown plan: ${planName}`);
+		}
+		const amount = planConfig.price[currency];
+		const priceId = await this.gateway.getOrCreatePrice(
+			planConfig.name,
+			amount,
+			currency,
+			'month',
+		);
+		return [{ price: priceId, quantity: 1 }];
 	}
 
-	async createSessionCheckout(metadata: any = {}, currency: 'BRL' | 'USD') {
+	async createSessionCheckout(params: {
+		metadata: Record<string, string>;
+		currency: 'BRL' | 'USD';
+		locale?: 'pt' | 'en' | 'auto';
+		customerId?: string | null;
+		customerEmail?: string | null;
+	}) {
+		const {
+			metadata,
+			currency,
+			locale = 'auto',
+			customerId,
+			customerEmail,
+		} = params;
 		const items = await this.prepareItems(metadata, currency);
-		const checkoutSession = await this.gateway.createSessionCheckout(
-			'subscription',
+		const checkoutSession = await this.gateway.createSessionCheckout({
+			mode: 'subscription',
 			items,
 			metadata,
-		);
+			customerId,
+			customerEmail,
+			locale: locale === 'auto' ? undefined : locale,
+		});
 		await this.repository.createCheckoutSession({
 			...metadata,
 			session_id: checkoutSession.id,
@@ -120,9 +144,21 @@ export default class PaymentsService {
 			subscription.subscription_id,
 			priceId,
 		);
+		
+		// Fetch updated subscription from Stripe to get current period dates
+		const stripeSub = await this.gateway.retrieveSubscription(
+			subscription.subscription_id,
+		);
+		const start = (stripeSub as { current_period_start?: number })
+			.current_period_start;
+		const end = (stripeSub as { current_period_end?: number }).current_period_end;
+		
 		await this.userService.upsertSubscription(userId, {
 			plan: newPlan,
 			subscription_id: subscription.subscription_id,
+			current_period_start:
+				start != null ? new Date(start * 1000) : undefined,
+			current_period_end: end != null ? new Date(end * 1000) : undefined,
 		});
 	}
 
@@ -130,44 +166,99 @@ export default class PaymentsService {
 		const status: string = stripeSession.payment_status;
 		const resourceType = session.resource_type;
 		const resourceId = session.resource_id;
-		const subscriptionId = stripeSession.subscription;
+		const subscriptionId = stripeSession.subscription as string | null;
+		const customerId =
+			typeof stripeSession.customer === 'string'
+				? stripeSession.customer
+				: (stripeSession.customer?.id ?? null);
 
-		const resources = {
-			plan_subscription: async () => {
-				if (status !== 'paid') {
-					return NextResponse.json(
-						{ error: 'Payment not paid' },
-						{ status: 400 },
-					);
-				}
-				this.processResultInvoice(resourceId, subscriptionId);
-				const message = JSON.stringify({
-					type: 'success',
-					message: 'Plan updated successfully',
-				});
-				const encodedMessage = encodeURIComponent(message);
-				const redirectUrl = new URL(
-					`${process.env.NEXT_PUBLIC_APP_URL}/settings`,
-				);
-				redirectUrl.searchParams.set('message', encodedMessage);
-				redirectUrl.searchParams.set('section', 'plan');
-				return NextResponse.redirect(redirectUrl.toString());
-			},
-		};
+		if (!ALLOWED_RESOURCE_TYPES.includes(resourceType)) {
+			return NextResponse.json(
+				{ error: 'Unsupported resource type' },
+				{ status: 400 },
+			);
+		}
 
-		const result = await resources[resourceType]();
-		return result;
+		if (status !== 'paid') {
+			return NextResponse.json({ error: 'Payment not paid' }, { status: 400 });
+		}
+
+		if (!subscriptionId) {
+			return NextResponse.json(
+				{ error: 'No subscription in session' },
+				{ status: 400 },
+			);
+		}
+
+		const extra: {
+			stripeCustomerId?: string | null;
+			currentPeriodStart?: Date | null;
+			currentPeriodEnd?: Date | null;
+		} = { stripeCustomerId: customerId };
+
+		try {
+			const sub = await this.gateway.retrieveSubscription(subscriptionId);
+			const start = (sub as { current_period_start?: number })
+				.current_period_start;
+			const end = (sub as { current_period_end?: number }).current_period_end;
+			if (start != null && end != null) {
+				extra.currentPeriodStart = new Date(start * 1000);
+				extra.currentPeriodEnd = new Date(end * 1000);
+			}
+		} catch {
+			// keep only customer id if subscription fetch fails
+		}
+
+		await this.processResultInvoice(resourceId, subscriptionId, extra);
+
+		const message = JSON.stringify({
+			type: 'success',
+			message: 'Plan updated successfully',
+		});
+		const baseUrl = process.env.NEXT_PUBLIC_APP_URL!.replace(/\/$/, '');
+		const redirectUrl = new URL(`${baseUrl}/settings`);
+		redirectUrl.searchParams.set('message', encodeURIComponent(message));
+		redirectUrl.searchParams.set('section', 'plan');
+		return NextResponse.redirect(redirectUrl.toString());
 	}
 
-	async processResultInvoice(resourceId: string, subscriptionId: string) {
-		const splitted = resourceId.split('|');
-		const userId = splitted[0];
-		const planName = splitted[1];
-
-		await this.userService.upsertSubscription(userId, {
+	async processResultInvoice(
+		resourceId: string,
+		subscriptionId: string,
+		extra?: {
+			stripeCustomerId?: string | null;
+			currentPeriodStart?: Date | null;
+			currentPeriodEnd?: Date | null;
+		},
+	) {
+		const [userId, planName] = resourceId.split('|');
+		if (!userId || !planName) {
+			throw new Error('Invalid resource_id');
+		}
+		
+		// Build update data, preserving null values (don't convert to undefined)
+		const updateData: {
+			plan: string;
+			subscription_id: string;
+			stripe_customer_id?: string | null;
+			current_period_start?: Date | null;
+			current_period_end?: Date | null;
+		} = {
 			plan: planName,
 			subscription_id: subscriptionId,
-		});
+		};
+		
+		if (extra?.stripeCustomerId !== undefined) {
+			updateData.stripe_customer_id = extra.stripeCustomerId;
+		}
+		if (extra?.currentPeriodStart !== undefined) {
+			updateData.current_period_start = extra.currentPeriodStart;
+		}
+		if (extra?.currentPeriodEnd !== undefined) {
+			updateData.current_period_end = extra.currentPeriodEnd;
+		}
+		
+		await this.userService.upsertSubscription(userId, updateData);
 	}
 
 	async retrieveInvoice(invoiceId: string) {
@@ -176,5 +267,215 @@ export default class PaymentsService {
 
 	async retrieveSubscription(subscriptionId: string) {
 		return await this.gateway.retrieveSubscription(subscriptionId);
+	}
+
+	async ensureWebhookIdempotency(
+		eventId: string,
+		eventType: string,
+	): Promise<boolean> {
+		try {
+			await this.webhooksRepo.insertWebhookEvent(eventId, eventType);
+			return true;
+		} catch (err: unknown) {
+			const mysqlErr = err as { code?: string; errno?: number };
+			if (mysqlErr?.code === 'ER_DUP_ENTRY' || mysqlErr?.errno === 1062) {
+				return false;
+			}
+			throw err;
+		}
+	}
+
+	async handleWebhookEvent(event: Stripe.Event): Promise<void> {
+		if (
+			!WEBHOOK_EVENTS.includes(event.type as (typeof WEBHOOK_EVENTS)[number])
+		) {
+			return;
+		}
+
+		switch (event.type) {
+			case 'checkout.session.completed':
+				await this.handleCheckoutSessionCompleted(
+					event.data.object as Stripe.Checkout.Session,
+				);
+				break;
+			case 'invoice.payment_succeeded':
+				await this.handleInvoicePaymentSucceeded(
+					event.data.object as Stripe.Invoice,
+				);
+				break;
+			case 'invoice.payment_failed':
+				await this.handleInvoicePaymentFailed(
+					event.data.object as Stripe.Invoice,
+				);
+				break;
+			case 'customer.subscription.updated':
+				await this.handleSubscriptionUpdated(
+					event.data.object as Stripe.Subscription,
+				);
+				break;
+			case 'customer.subscription.deleted':
+				await this.handleSubscriptionDeleted(
+					event.data.object as Stripe.Subscription,
+				);
+				break;
+			case 'charge.refunded':
+				await this.handleChargeRefunded(event.data.object as Stripe.Charge);
+				break;
+			default:
+				break;
+		}
+	}
+
+	private async handleCheckoutSessionCompleted(
+		session: Stripe.Checkout.Session,
+	) {
+		const subId =
+			typeof session.subscription === 'string'
+				? session.subscription
+				: (session.subscription?.id ?? null);
+		const metadata = (session.metadata ?? {}) as Record<string, string>;
+		const resourceId = metadata.resource_id;
+		const resourceType = metadata.resource_type;
+
+		if (resourceType !== 'plan_subscription' || !resourceId || !subId) {
+			return;
+		}
+
+		const customerId =
+			typeof session.customer === 'string'
+				? session.customer
+				: (session.customer?.id ?? null);
+
+		const extra: {
+			stripeCustomerId?: string | null;
+			currentPeriodStart?: Date | null;
+			currentPeriodEnd?: Date | null;
+		} = { stripeCustomerId: customerId };
+
+		try {
+			const sub = await this.gateway.retrieveSubscription(subId);
+			const start = (sub as { current_period_start?: number })
+				.current_period_start;
+			const end = (sub as { current_period_end?: number }).current_period_end;
+			if (start != null && end != null) {
+				extra.currentPeriodStart = new Date(start * 1000);
+				extra.currentPeriodEnd = new Date(end * 1000);
+			}
+		} catch {
+			// keep only customer id
+		}
+
+		await this.processResultInvoice(resourceId, subId, extra);
+	}
+
+	private async handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
+		const subRef = (invoice as { subscription?: string | { id?: string } })
+			.subscription;
+		const subId = typeof subRef === 'string' ? subRef : (subRef?.id ?? null);
+		if (!subId) return;
+
+		const sub = await this.gateway.retrieveSubscription(subId);
+		const metadata = (sub?.metadata ?? {}) as Record<string, string>;
+		const resourceId = metadata.resource_id;
+		if (!resourceId) return;
+
+		const customerId =
+			typeof invoice.customer === 'string'
+				? invoice.customer
+				: (invoice.customer?.id ?? null);
+
+		const start = (sub as { current_period_start?: number })
+			.current_period_start;
+		const end = (sub as { current_period_end?: number }).current_period_end;
+
+		const extra: {
+			stripeCustomerId?: string | null;
+			currentPeriodStart?: Date | null;
+			currentPeriodEnd?: Date | null;
+		} = { stripeCustomerId: customerId };
+		if (start != null && end != null) {
+			extra.currentPeriodStart = new Date(start * 1000);
+			extra.currentPeriodEnd = new Date(end * 1000);
+		}
+
+		await this.processResultInvoice(resourceId, subId, extra);
+
+		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
+		if (row) {
+			await this.userService.updateSubscriptionStatus(row.user_id, 'active');
+		}
+	}
+
+	private async handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
+		const subRef = (invoice as { subscription?: string | { id?: string } })
+			.subscription;
+		const subId = typeof subRef === 'string' ? subRef : (subRef?.id ?? null);
+		if (!subId) return;
+
+		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
+		if (row) {
+			await this.userService.updateSubscriptionStatus(row.user_id, 'past_due');
+		}
+	}
+
+	private async handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+		const subId = subscription.id;
+		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
+		if (!row) return;
+
+		const statusMap: Record<string, string> = {
+			active: 'active',
+			past_due: 'past_due',
+			unpaid: 'unpaid',
+			canceled: 'canceled',
+			incomplete: 'past_due',
+			incomplete_expired: 'canceled',
+			trialing: 'active',
+			paused: 'active',
+		};
+		const status = subscription.status
+			? (statusMap[subscription.status] ?? (row as { status?: string }).status)
+			: undefined;
+
+		const sub = subscription as {
+			current_period_start?: number;
+			current_period_end?: number;
+			cancel_at_period_end?: boolean;
+		};
+
+		await this.userService.updateSubscriptionFields(row.id, {
+			status,
+			current_period_start:
+				sub.current_period_start != null
+					? new Date(sub.current_period_start * 1000)
+					: undefined,
+			current_period_end:
+				sub.current_period_end != null
+					? new Date(sub.current_period_end * 1000)
+					: undefined,
+			cancel_at_period_end: sub.cancel_at_period_end ?? undefined,
+		});
+	}
+
+	private async handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+		await this.userService.deleteSubscriptionBySubscriptionId(subscription.id);
+	}
+
+	private async handleChargeRefunded(charge: Stripe.Charge) {
+		const invRef = (charge as { invoice?: string | { id?: string } }).invoice;
+		const invoiceId =
+			typeof invRef === 'string' ? invRef : (invRef?.id ?? null);
+		if (!invoiceId) return;
+
+		const invoice = await this.gateway.retrieveInvoice(invoiceId);
+		const subRef = (invoice as { subscription?: string | { id?: string } })
+			.subscription;
+		const subId = typeof subRef === 'string' ? subRef : (subRef?.id ?? null);
+		if (!subId) return;
+
+		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
+		if (row) {
+			await this.userService.updateSubscriptionStatus(row.user_id, 'canceled');
+		}
 	}
 }

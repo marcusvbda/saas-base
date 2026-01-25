@@ -150,30 +150,92 @@ export default class UserRepository extends Repository {
 		);
 	}
 
-	async createSubscription(userId: string, data: any) {
+	async createSubscription(
+		userId: string,
+		data: {
+			plan: string;
+			subscription_id: string;
+			stripe_customer_id?: string | null;
+			status?: string;
+			current_period_start?: Date | null;
+			current_period_end?: Date | null;
+		},
+	) {
 		await this.execute(
-			'INSERT INTO `user_subscriptions` (`user_id`, `plan`, `subscription_id`) VALUES (:userId, :plan, :subscription_id)',
-			{ userId, plan: data.plan, subscription_id: data.subscription_id },
-		);
-	}
-
-	async updateSubscription(id: number, data: any) {
-		await this.execute(
-			'UPDATE `user_subscriptions` SET `plan` = :plan, `subscription_id` = :subscription_id, `updated_at` = CURRENT_TIMESTAMP WHERE `id` = :id',
+			`INSERT INTO \`user_subscriptions\` (
+				\`user_id\`, \`plan\`, \`subscription_id\`,
+				\`stripe_customer_id\`, \`status\`,
+				\`current_period_start\`, \`current_period_end\`
+			) VALUES (
+				:userId, :plan, :subscription_id,
+				:stripe_customer_id, :status,
+				:current_period_start, :current_period_end
+			)`,
 			{
-				id,
+				userId,
 				plan: data.plan,
 				subscription_id: data.subscription_id,
+				stripe_customer_id: data.stripe_customer_id ?? null,
+				status: data.status ?? 'active',
+				current_period_start: data.current_period_start ?? null,
+				current_period_end: data.current_period_end ?? null,
 			},
 		);
 	}
 
-	async cancelSubscription(subscription: any) {
+	async updateSubscription(
+		id: number,
+		data: {
+			plan?: string;
+			subscription_id?: string;
+			stripe_customer_id?: string | null;
+			status?: string;
+			current_period_start?: Date | null;
+			current_period_end?: Date | null;
+			cancel_at_period_end?: boolean;
+		},
+	) {
+		const allowed: (keyof typeof data)[] = [
+			'plan',
+			'subscription_id',
+			'stripe_customer_id',
+			'status',
+			'current_period_start',
+			'current_period_end',
+			'cancel_at_period_end',
+		];
+		const updates: string[] = [];
+		const params: Record<string, unknown> = { id };
+
+		for (const k of allowed) {
+			const v = data[k];
+			if (v === undefined) continue;
+			if (k === 'cancel_at_period_end') {
+				updates.push('`cancel_at_period_end` = :cancel_at_period_end');
+				params.cancel_at_period_end = v ? 1 : 0;
+				continue;
+			}
+			updates.push(`\`${k}\` = :${k}`);
+			params[k as string] = v;
+		}
+
+		if (updates.length === 0) return;
+
+		updates.push('`updated_at` = CURRENT_TIMESTAMP');
+		await this.execute(
+			`UPDATE \`user_subscriptions\` SET ${updates.join(', ')} WHERE \`id\` = :id`,
+			params,
+		);
+	}
+
+	async cancelSubscription(subscription: {
+		id: number;
+		subscription_id: string;
+	}) {
+		const stripeGateway = new StripeGateway();
+		await stripeGateway.cancelSubscription(subscription.subscription_id);
 		await this.execute('DELETE FROM `user_subscriptions` WHERE `id` = :id', {
 			id: subscription.id,
 		});
-
-		const stripeGateway = new StripeGateway();
-		await stripeGateway.cancelSubscription(subscription);
 	}
 }
