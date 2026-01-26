@@ -113,12 +113,12 @@ export default class UserService {
 		await this.repository.createSubscription(userId, data);
 	}
 
-	async cancelSubscription(userId: string) {
+	async cancelSubscription(userId: string, cancelAtPeriodEnd = false) {
 		const subscription = await this.getSubscriptionByUserId(userId);
 		if (!subscription) {
 			return;
 		}
-		await this.repository.cancelSubscription(subscription);
+		await this.repository.cancelSubscription(subscription, cancelAtPeriodEnd);
 	}
 
 	async getSubscriptionBySubscriptionId(subscriptionId: string) {

@@ -131,7 +131,7 @@ export default class UserRepository extends Repository {
 
 	async getSubscriptionByUserId(userId: string) {
 		return await this.findOne(
-			'SELECT * FROM `user_subscriptions` WHERE `user_id` = :userId',
+			'SELECT * FROM `user_subscriptions` WHERE `user_id` = :userId ORDER BY `updated_at` DESC',
 			{ userId },
 		);
 	}
@@ -228,14 +228,20 @@ export default class UserRepository extends Repository {
 		);
 	}
 
-	async cancelSubscription(subscription: {
-		id: number;
-		subscription_id: string;
-	}) {
+	async cancelSubscription(
+		subscription: {
+			id: number;
+			subscription_id: string;
+		},
+		cancelAtPeriodEnd = false,
+	) {
 		const stripeGateway = new StripeGateway();
-		await stripeGateway.cancelSubscription(subscription.subscription_id);
-		await this.execute('DELETE FROM `user_subscriptions` WHERE `id` = :id', {
-			id: subscription.id,
-		});
+		await stripeGateway.cancelSubscription(
+			subscription.subscription_id,
+			cancelAtPeriodEnd,
+		);
+		// Note: We don't delete from DB here. We wait for the Stripe webhook
+		// (customer.subscription.deleted or customer.subscription.updated)
+		// to update our local database state.
 	}
 }

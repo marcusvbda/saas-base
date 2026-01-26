@@ -143,6 +143,7 @@ export default class PaymentsService {
 		await this.gateway.updateSubscription(
 			subscription.subscription_id,
 			priceId,
+			{ resource_id: `${userId}|${newPlan}`, resource_type: 'plan_subscription' },
 		);
 		
 		// Fetch updated subscription from Stripe to get current period dates
@@ -428,7 +429,7 @@ export default class PaymentsService {
 			past_due: 'past_due',
 			unpaid: 'unpaid',
 			canceled: 'canceled',
-			incomplete: 'past_due',
+			incomplete: 'incomplete',
 			incomplete_expired: 'canceled',
 			trialing: 'active',
 			paused: 'active',
@@ -437,11 +438,7 @@ export default class PaymentsService {
 			? (statusMap[subscription.status] ?? (row as { status?: string }).status)
 			: undefined;
 
-		const sub = subscription as {
-			current_period_start?: number;
-			current_period_end?: number;
-			cancel_at_period_end?: boolean;
-		};
+		const sub = subscription as any;
 
 		await this.userService.updateSubscriptionFields(row.id, {
 			status,
@@ -458,7 +455,12 @@ export default class PaymentsService {
 	}
 
 	private async handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-		await this.userService.deleteSubscriptionBySubscriptionId(subscription.id);
+		const row = await this.userService.getSubscriptionBySubscriptionId(
+			subscription.id,
+		);
+		if (row) {
+			await this.userService.updateSubscriptionStatus(row.user_id, 'canceled');
+		}
 	}
 
 	private async handleChargeRefunded(charge: Stripe.Charge) {
@@ -475,7 +477,17 @@ export default class PaymentsService {
 
 		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
 		if (row) {
-			await this.userService.updateSubscriptionStatus(row.user_id, 'canceled');
+			if (charge.refunded) {
+				try {
+					await this.gateway.cancelSubscription(subId);
+				} catch (err) {
+					console.error('Failed to cancel subscription after refund:', err);
+				}
+				await this.userService.updateSubscriptionStatus(row.user_id, 'canceled');
+			} else {
+				// Partial refund - maybe just mark as past_due or keep active?
+				// For now, let's keep it active but maybe the user wants to log this.
+			}
 		}
 	}
 }

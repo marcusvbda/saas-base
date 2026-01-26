@@ -177,20 +177,30 @@ export default class StripeGateway {
 		return session;
 	}
 
-	async cancelSubscription(subscriptionId: string): Promise<void> {
-		await this.stripe.subscriptions.cancel(subscriptionId);
+	async cancelSubscription(
+		subscriptionId: string,
+		cancelAtPeriodEnd = false,
+	): Promise<void> {
+		if (cancelAtPeriodEnd) {
+			await this.stripe.subscriptions.update(subscriptionId, {
+				cancel_at_period_end: true,
+			});
+		} else {
+			await this.stripe.subscriptions.cancel(subscriptionId);
+		}
 	}
 
 	async updateSubscription(
 		subscriptionId: string,
 		newPriceId: string,
+		metadata?: Record<string, string>,
 	): Promise<void> {
 		const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
 		const itemId = sub.items.data[0]?.id;
 		if (!itemId) {
 			throw new Error('Subscription has no items');
 		}
-		await this.stripe.subscriptions.update(subscriptionId, {
+		const updateParams: Stripe.SubscriptionUpdateParams = {
 			items: [
 				{
 					id: itemId,
@@ -198,7 +208,11 @@ export default class StripeGateway {
 				},
 			],
 			proration_behavior: 'create_prorations',
-		});
+		};
+		if (metadata) {
+			updateParams.metadata = metadata;
+		}
+		await this.stripe.subscriptions.update(subscriptionId, updateParams);
 	}
 
 	async retrieveInvoice(invoiceId: string) {
