@@ -12,7 +12,7 @@ export default function DashboardPage() {
 			title={t('Dashboard')}
 			description={t('Welcome to the dashboard')}
 		>
-			<PlanGate allowedPlans={['pro', 'basic']}>
+			<PlanGate allowedPlans={['pro']}>
 				TESTE PLAN GATE
 				{/* <SSEClient
 					eventName="clock"

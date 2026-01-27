@@ -117,7 +117,7 @@ export default class PaymentsService {
 	async changePlan(
 		userId: string,
 		newPlan: string,
-		currency: 'BRL' | 'USD',
+		_requestCurrency: 'BRL' | 'USD',
 	): Promise<void> {
 		if (newPlan === DEFAULT_PLAN) {
 			throw new Error('Use cancel subscription to switch to free');
@@ -126,9 +126,32 @@ export default class PaymentsService {
 		if (!subscription) {
 			throw new Error('No active subscription to change');
 		}
-		if (subscription.plan === newPlan) {
+		const status = (subscription as { status?: string }).status ?? 'active';
+		const periodEnd = (subscription as { current_period_end?: Date | null })
+			?.current_period_end;
+		const hasAccess =
+			status === 'active' ||
+			status === 'trialing' ||
+			status === 'past_due' ||
+			(status === 'canceled' &&
+				periodEnd != null &&
+				new Date(periodEnd) > new Date());
+		if (!hasAccess) {
+			throw new Error('Subscription is not active; renew to change plan');
+		}
+		if ((subscription as { plan?: string }).plan === newPlan) {
 			return;
 		}
+
+		const stripeSub = await this.gateway.retrieveSubscription(
+			subscription.subscription_id,
+		);
+		const firstItem = (stripeSub as { items?: { data?: { price?: { currency?: string } }[] } })
+			?.items?.data?.[0];
+		const currencyCode = (firstItem?.price?.currency ?? 'usd').toUpperCase();
+		const currency: 'BRL' | 'USD' =
+			currencyCode === 'BRL' ? 'BRL' : 'USD';
+
 		const planConfig = PLANS.find((p) => p.id === newPlan);
 		if (!planConfig) {
 			throw new Error(`Unknown plan: ${newPlan}`);
@@ -145,15 +168,14 @@ export default class PaymentsService {
 			priceId,
 			{ resource_id: `${userId}|${newPlan}`, resource_type: 'plan_subscription' },
 		);
-		
-		// Fetch updated subscription from Stripe to get current period dates
-		const stripeSub = await this.gateway.retrieveSubscription(
+
+		const updatedSub = await this.gateway.retrieveSubscription(
 			subscription.subscription_id,
 		);
-		const start = (stripeSub as { current_period_start?: number })
+		const start = (updatedSub as { current_period_start?: number })
 			.current_period_start;
-		const end = (stripeSub as { current_period_end?: number }).current_period_end;
-		
+		const end = (updatedSub as { current_period_end?: number }).current_period_end;
+
 		await this.userService.upsertSubscription(userId, {
 			plan: newPlan,
 			subscription_id: subscription.subscription_id,
@@ -164,10 +186,16 @@ export default class PaymentsService {
 	}
 
 	async processResultSessionCheckout(stripeSession: any, session: any) {
-		const status: string = stripeSession.payment_status;
+		const status: string = String(stripeSession.payment_status ?? '');
 		const resourceType = session.resource_type;
 		const resourceId = session.resource_id;
-		const subscriptionId = stripeSession.subscription as string | null;
+		const subRef = stripeSession.subscription;
+		const subscriptionId =
+			typeof subRef === 'string'
+				? subRef
+				: (subRef && typeof subRef === 'object' && 'id' in subRef
+						? (subRef as { id: string }).id
+						: null);
 		const customerId =
 			typeof stripeSession.customer === 'string'
 				? stripeSession.customer
@@ -421,8 +449,9 @@ export default class PaymentsService {
 
 	private async handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 		const subId = subscription.id;
-		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
-		if (!row) return;
+		const metadata = (subscription.metadata ?? {}) as Record<string, string>;
+		const resourceId = metadata.resource_id;
+		const resourceType = metadata.resource_type;
 
 		const statusMap: Record<string, string> = {
 			active: 'active',
@@ -435,13 +464,42 @@ export default class PaymentsService {
 			paused: 'active',
 		};
 		const status = subscription.status
-			? (statusMap[subscription.status] ?? (row as { status?: string }).status)
+			? (statusMap[subscription.status] ?? 'active')
 			: undefined;
 
-		const sub = subscription as any;
+		const sub = subscription as {
+			current_period_start?: number;
+			current_period_end?: number;
+			cancel_at_period_end?: boolean;
+		};
 
-		await this.userService.updateSubscriptionFields(row.id, {
-			status,
+		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
+
+		if (row) {
+			await this.userService.updateSubscriptionFields(row.id, {
+				status,
+				current_period_start:
+					sub.current_period_start != null
+						? new Date(sub.current_period_start * 1000)
+						: undefined,
+				current_period_end:
+					sub.current_period_end != null
+						? new Date(sub.current_period_end * 1000)
+						: undefined,
+				cancel_at_period_end: sub.cancel_at_period_end ?? undefined,
+			});
+			return;
+		}
+
+		if (resourceType !== 'plan_subscription' || !resourceId) return;
+
+		const [userId, planName] = resourceId.split('|');
+		if (!userId || !planName) return;
+
+		await this.userService.upsertSubscription(userId, {
+			plan: planName,
+			subscription_id: subId,
+			status: status ?? 'active',
 			current_period_start:
 				sub.current_period_start != null
 					? new Date(sub.current_period_start * 1000)
@@ -476,18 +534,19 @@ export default class PaymentsService {
 		if (!subId) return;
 
 		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
-		if (row) {
-			if (charge.refunded) {
-				try {
-					await this.gateway.cancelSubscription(subId);
-				} catch (err) {
-					console.error('Failed to cancel subscription after refund:', err);
-				}
-				await this.userService.updateSubscriptionStatus(row.user_id, 'canceled');
-			} else {
-				// Partial refund - maybe just mark as past_due or keep active?
-				// For now, let's keep it active but maybe the user wants to log this.
+		if (!row) return;
+
+		if (charge.refunded) {
+			try {
+				await this.gateway.cancelSubscription(subId, false);
+			} catch (err) {
+				console.error('Failed to cancel subscription after refund:', err);
 			}
+			await this.userService.updateSubscriptionStatus(
+				(row as { user_id: string }).user_id,
+				'canceled',
+			);
 		}
+		// Partial refund: keep subscription; no status change.
 	}
 }

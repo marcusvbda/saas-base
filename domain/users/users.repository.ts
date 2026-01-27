@@ -159,17 +159,18 @@ export default class UserRepository extends Repository {
 			status?: string;
 			current_period_start?: Date | null;
 			current_period_end?: Date | null;
+			cancel_at_period_end?: boolean;
 		},
 	) {
 		await this.execute(
 			`INSERT INTO \`user_subscriptions\` (
 				\`user_id\`, \`plan\`, \`subscription_id\`,
 				\`stripe_customer_id\`, \`status\`,
-				\`current_period_start\`, \`current_period_end\`
+				\`current_period_start\`, \`current_period_end\`, \`cancel_at_period_end\`
 			) VALUES (
 				:userId, :plan, :subscription_id,
 				:stripe_customer_id, :status,
-				:current_period_start, :current_period_end
+				:current_period_start, :current_period_end, :cancel_at_period_end
 			)`,
 			{
 				userId,
@@ -179,6 +180,7 @@ export default class UserRepository extends Repository {
 				status: data.status ?? 'active',
 				current_period_start: data.current_period_start ?? null,
 				current_period_end: data.current_period_end ?? null,
+				cancel_at_period_end: data.cancel_at_period_end ? 1 : 0,
 			},
 		);
 	}
@@ -232,16 +234,39 @@ export default class UserRepository extends Repository {
 		subscription: {
 			id: number;
 			subscription_id: string;
+			current_period_end?: Date | null;
 		},
-		cancelAtPeriodEnd = false,
-	) {
+		cancelAtPeriodEnd = true,
+	): Promise<{ cancelAtPeriodEnd: boolean; currentPeriodEnd: Date | null } | null> {
 		const stripeGateway = new StripeGateway();
 		await stripeGateway.cancelSubscription(
 			subscription.subscription_id,
 			cancelAtPeriodEnd,
 		);
-		// Note: We don't delete from DB here. We wait for the Stripe webhook
-		// (customer.subscription.deleted or customer.subscription.updated)
-		// to update our local database state.
+		if (cancelAtPeriodEnd) {
+			await this.updateSubscription(subscription.id, {
+				cancel_at_period_end: true,
+			});
+		}
+		const end = subscription.current_period_end
+			? new Date(subscription.current_period_end)
+			: null;
+		return { cancelAtPeriodEnd, currentPeriodEnd: end };
+	}
+
+	async reactivateSubscription(
+		subscription: {
+			id: number;
+			subscription_id: string;
+			cancel_at_period_end?: number;
+		},
+	): Promise<boolean> {
+		if (!subscription.cancel_at_period_end) return false;
+		const stripeGateway = new StripeGateway();
+		await stripeGateway.reactivateSubscription(subscription.subscription_id);
+		await this.updateSubscription(subscription.id, {
+			cancel_at_period_end: false,
+		});
+		return true;
 	}
 }

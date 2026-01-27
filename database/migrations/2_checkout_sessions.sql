@@ -7,3 +7,7 @@ create table `checkout_sessions` (
   `created_at` datetime not null default current_timestamp,
   `updated_at` datetime not null default current_timestamp on update current_timestamp
 );
+
+create unique index `checkout_sessions_session_id_idx` on `checkout_sessions` (`session_id`);
+create index `checkout_sessions_resource_type_resource_id_idx` on `checkout_sessions` (`resource_type`, `resource_id`);
+create index `checkout_sessions_created_at_idx` on `checkout_sessions` (`created_at`);

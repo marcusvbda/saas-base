@@ -1,3 +1,14 @@
+/**
+ * Stripe webhook handler.
+ *
+ * Subscribe to these events in Stripe Dashboard → Developers → Webhooks:
+ * - checkout.session.completed
+ * - invoice.payment_succeeded
+ * - invoice.payment_failed
+ * - customer.subscription.updated
+ * - customer.subscription.deleted
+ * - charge.refunded
+ */
 import PaymentsService from '@/domain/payments/payments.service';
 import Stripe from 'stripe';
 import { headers } from 'next/headers';

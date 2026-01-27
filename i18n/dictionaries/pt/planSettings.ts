@@ -22,6 +22,21 @@ const planSettings = {
 	'Subscribe to a plan': 'Assinar um Plano',
 	'Plan updated successfully': 'Plano atualizado com sucesso',
 	'Subscription canceled': 'Assinatura cancelada com sucesso',
+	'Subscription will end on {date}. You keep access until then.':
+		'Sua assinatura será encerrada em {date}. Você mantém acesso até lá.',
+	'Your subscription will end on {date}. You keep access until then.':
+		'Sua assinatura será encerrada em {date}. Você mantém acesso até lá.',
+	'Your subscription is set to cancel. You keep access until the end of your billing period.':
+		'Sua assinatura está marcada para cancelar. Você mantém acesso até o fim do período de cobrança.',
+	'Reactivate subscription': 'Reativar assinatura',
+	'Reactivating…': 'Reativando…',
+	'Cancel subscription': 'Cancelar assinatura',
+	'Canceling…': 'Cancelando…',
+	'Subscription reactivated': 'Assinatura reativada',
+	'Failed to reactivate subscription': 'Falha ao reativar assinatura',
+	'No active subscription to cancel': 'Nenhuma assinatura ativa para cancelar',
+	'No subscription to reactivate or not set to cancel at period end':
+		'Sem assinatura para reativar ou não configurada para cancelar ao fim do período',
 	cancel: 'cancelar',
 	change: 'alterar',
 	'Are you sure you want to {action} your subscription?':

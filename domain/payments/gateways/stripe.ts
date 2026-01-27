@@ -179,7 +179,7 @@ export default class StripeGateway {
 
 	async cancelSubscription(
 		subscriptionId: string,
-		cancelAtPeriodEnd = false,
+		cancelAtPeriodEnd = true,
 	): Promise<void> {
 		if (cancelAtPeriodEnd) {
 			await this.stripe.subscriptions.update(subscriptionId, {
@@ -188,6 +188,12 @@ export default class StripeGateway {
 		} else {
 			await this.stripe.subscriptions.cancel(subscriptionId);
 		}
+	}
+
+	async reactivateSubscription(subscriptionId: string): Promise<void> {
+		await this.stripe.subscriptions.update(subscriptionId, {
+			cancel_at_period_end: false,
+		});
 	}
 
 	async updateSubscription(

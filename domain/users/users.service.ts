@@ -105,6 +105,62 @@ export default class UserService {
 		return this.repository.getSubscriptionByUserId(userId);
 	}
 
+	/**
+	 * Returns effective plan (for access) and subscription detail (for UI).
+	 * Access = active, or canceled but current_period_end > now.
+	 */
+	async getSubscriptionForSession(userId: string): Promise<{
+		effectivePlan: string;
+		subscriptionDetail: {
+			plan: string;
+			status: string;
+			cancelAtPeriodEnd: boolean;
+			currentPeriodEnd: Date | null;
+		} | null;
+	}> {
+		const sub = await this.repository.getSubscriptionByUserId(userId);
+		const now = new Date();
+		const defaultResult = {
+			effectivePlan: 'free' as const,
+			subscriptionDetail: null as {
+				plan: string;
+				status: string;
+				cancelAtPeriodEnd: boolean;
+				currentPeriodEnd: Date | null;
+			} | null,
+		};
+		if (!sub) return defaultResult;
+
+		const status = (sub as { status?: string }).status ?? 'active';
+		const cancelAtPeriodEnd = Boolean((sub as { cancel_at_period_end?: number })?.cancel_at_period_end);
+		const currentPeriodEnd = (sub as { current_period_end?: Date | null })?.current_period_end
+			? new Date((sub as { current_period_end: Date }).current_period_end)
+			: null;
+
+		const hasAccess =
+			status === 'active' ||
+			status === 'trialing' ||
+			(status === 'canceled' && currentPeriodEnd != null && currentPeriodEnd > now) ||
+			(status === 'past_due');
+
+		const plan = (sub as { plan?: string }).plan ?? 'free';
+		const detail = {
+			plan,
+			status,
+			cancelAtPeriodEnd,
+			currentPeriodEnd,
+		};
+
+		if (!hasAccess) {
+			return { ...defaultResult, subscriptionDetail: detail };
+		}
+
+		return {
+			effectivePlan: plan,
+			subscriptionDetail: detail,
+		};
+	}
+
 	async upsertSubscription(userId: string, data: any) {
 		const subscription = await this.repository.getSubscriptionByUserId(userId);
 		if (subscription) {
@@ -113,12 +169,17 @@ export default class UserService {
 		await this.repository.createSubscription(userId, data);
 	}
 
-	async cancelSubscription(userId: string, cancelAtPeriodEnd = false) {
+	/**
+	 * Cancel subscription. Default: cancel_at_period_end so user keeps access until period end.
+	 * Returns { cancelAtPeriodEnd, currentPeriodEnd } for UI.
+	 */
+	async cancelSubscription(
+		userId: string,
+		cancelAtPeriodEnd = true,
+	): Promise<{ cancelAtPeriodEnd: boolean; currentPeriodEnd: Date | null } | null> {
 		const subscription = await this.getSubscriptionByUserId(userId);
-		if (!subscription) {
-			return;
-		}
-		await this.repository.cancelSubscription(subscription, cancelAtPeriodEnd);
+		if (!subscription) return null;
+		return this.repository.cancelSubscription(subscription, cancelAtPeriodEnd);
 	}
 
 	async getSubscriptionBySubscriptionId(subscriptionId: string) {
@@ -127,6 +188,12 @@ export default class UserService {
 
 	async deleteSubscriptionBySubscriptionId(subscriptionId: string) {
 		await this.repository.deleteSubscriptionBySubscriptionId(subscriptionId);
+	}
+
+	async reactivateSubscription(userId: string): Promise<boolean> {
+		const sub = await this.repository.getSubscriptionByUserId(userId);
+		if (!sub) return false;
+		return this.repository.reactivateSubscription(sub);
 	}
 
 	async updateSubscriptionStatus(userId: string, status: string) {

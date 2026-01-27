@@ -10,5 +10,9 @@ CREATE TABLE IF NOT EXISTS `stripe_webhook_events` (
   `event_id` VARCHAR(255) NOT NULL UNIQUE,
   `event_type` VARCHAR(128) NOT NULL,
   `processed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX `idx_event_id` (`event_id`)
+  INDEX `idx_event_id` (`event_id`),
+  INDEX `stripe_webhook_events_event_type_idx` (`event_type`),
+  INDEX `stripe_webhook_events_processed_at_idx` (`processed_at`)
 );
+
+CREATE INDEX `user_subscriptions_user_status_idx` ON `user_subscriptions` (`user_id`, `status`);
