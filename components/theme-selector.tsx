@@ -1,7 +1,7 @@
 'use client';
 
 import { IconMoon, IconSun } from '@tabler/icons-react';
-import { useTheme } from '@/providers/theme.provider';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 

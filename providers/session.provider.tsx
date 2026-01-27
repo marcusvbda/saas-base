@@ -8,18 +8,19 @@ import {
 	useContext,
 	useEffect,
 	useState,
+	Suspense,
 } from 'react';
 import { toast } from 'sonner';
 
 export const AuthContext = createContext<any>({ session: null });
 
-export const SessionProvider = ({
+function SessionProviderContent({
 	children,
 	session: initSession,
 }: {
 	children: ReactNode;
 	session: any;
-}) => {
+}) {
 	const [session, setSession] = useState<any>(initSession);
 	const searchParams = useSearchParams();
 	const { t } = useLocale();
@@ -42,7 +43,7 @@ export const SessionProvider = ({
 			}
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [searchParams]);
 
 	return (
 		<AuthContext.Provider
@@ -53,6 +54,22 @@ export const SessionProvider = ({
 		>
 			{children}
 		</AuthContext.Provider>
+	);
+}
+
+export const SessionProvider = ({
+	children,
+	session: initSession,
+}: {
+	children: ReactNode;
+	session: any;
+}) => {
+	return (
+		<Suspense fallback={null}>
+			<SessionProviderContent session={initSession}>
+				{children}
+			</SessionProviderContent>
+		</Suspense>
 	);
 };
 

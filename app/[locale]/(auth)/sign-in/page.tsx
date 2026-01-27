@@ -213,7 +213,7 @@ const FragmentContent = () => {
 
 export default function SignInPage() {
 	return (
-		<Suspense>
+		<Suspense fallback={null}>
 			<FragmentContent />
 		</Suspense>
 	);

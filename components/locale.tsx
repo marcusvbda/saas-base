@@ -16,12 +16,7 @@ export const LocaleLink = ({
 	const { locale } = useLocale();
 	const localizedHref = useMemo(() => `/${locale}${href}`, [locale, href]);
 	return (
-		<Link
-			href={localizedHref}
-			className={className}
-			{...props}
-			suppressHydrationWarning
-		>
+		<Link href={localizedHref} className={className} {...props}>
 			{children}
 		</Link>
 	);

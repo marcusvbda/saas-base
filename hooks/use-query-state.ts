@@ -1,7 +1,7 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useCallback, useMemo } from 'react';
 
 export function useQueryState(
 	key: string,
@@ -9,20 +9,40 @@ export function useQueryState(
 	defaultValue: string,
 ) {
 	const searchParams = useSearchParams();
-	const gotQuery = searchParams.get(key) || '';
-	const initialSection = validValues.includes(gotQuery)
-		? gotQuery
-		: defaultValue;
-	const [state, setState] = useState<string>(initialSection);
+	const router = useRouter();
+	const pathname = usePathname();
 
-	useEffect(() => {
-		const url = new URL(window.location.href);
-		if (url.searchParams.get(key) !== state) {
-			url.searchParams.set(key, state);
-			window.history.replaceState({}, '', url.toString());
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [state]);
+	const state = useMemo(() => {
+		const queryValue = searchParams.get(key);
+		return validValues.includes(queryValue || '') ? queryValue : defaultValue;
+	}, [searchParams, key, validValues, defaultValue]);
 
-	return [state, setState];
+	const setState = useCallback(
+		(newValue: string | ((prev: string) => string)) => {
+			const value =
+				typeof newValue === 'function' ? newValue(state!) : newValue;
+
+			if (!validValues.includes(value)) {
+				console.warn(
+					`Invalid value "${value}" for key "${key}". Valid values are: ${validValues.join(', ')}`,
+				);
+				return;
+			}
+
+			const params = new URLSearchParams(searchParams.toString());
+			if (value === defaultValue) {
+				params.delete(key);
+			} else {
+				params.set(key, value);
+			}
+
+			const queryString = params.toString();
+			const newUrl = queryString ? `${pathname}?${queryString}` : pathname;
+
+			router.replace(newUrl, { scroll: false });
+		},
+		[key, validValues, defaultValue, state, searchParams, pathname, router],
+	);
+
+	return [state, setState] as const;
 }
