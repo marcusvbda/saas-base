@@ -14,6 +14,7 @@ import navigation from './navigation';
 import socialLogin from './socialLogin';
 import languageSelector from './languageSelector';
 import checkout from './checkout';
+import integrations from './integrationts';
 
 export default {
 	...common,
@@ -32,4 +33,5 @@ export default {
 	...socialLogin,
 	...languageSelector,
 	...checkout,
+	...integrations,
 } as const;

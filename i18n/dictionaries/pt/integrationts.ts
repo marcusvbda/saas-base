@@ -1,0 +1,46 @@
+const integrations = {
+	Integrations: 'Integrações',
+	'Manage your integrations': 'Gerencie suas integrações',
+	'Repository Provider': 'Provedor de Repositório',
+	'Repository providers': 'Provedores de repositório',
+	'Connect your code hosting providers to automatically use data from your repositories.':
+		'Conecte seus provedores de código para usar automaticamente os dados dos seus repositórios.',
+	'Add integration': 'Adicionar integração',
+	'Loading integrations…': 'Carregando integrações…',
+	'No integrations yet': 'Nenhuma integração ainda',
+	'Start by adding a GitLab integration to connect your repositories.':
+		'Comece adicionando uma integração com o GitLab para conectar seus repositórios.',
+	'Add your first integration': 'Adicione sua primeira integração',
+	'GitLab workspace': 'Workspace GitLab',
+	'Personal access token': 'Token de acesso pessoal',
+	Connected: 'Conectado',
+	Disconnected: 'Desconectado',
+	Pending: 'Pendente',
+	'Integration created successfully': 'Integração criada com sucesso',
+	'Integration updated successfully': 'Integração atualizada com sucesso',
+	'Integration deleted successfully': 'Integração excluída com sucesso',
+	'Failed to load integrations': 'Falha ao carregar integrações',
+	'Failed to create integration': 'Falha ao criar integração',
+	'Failed to update integration': 'Falha ao atualizar integração',
+	'Failed to delete integration': 'Falha ao excluir integração',
+	'Something went wrong': 'Algo deu errado',
+	'Add GitLab integration': 'Adicionar integração com GitLab',
+	'Edit GitLab integration': 'Editar integração com GitLab',
+	'Paste your GitLab personal access token':
+		'Cole o seu token de acesso pessoal do GitLab',
+	'We only store this token securely to synchronize your repositories.':
+		'Armazenamos esse token com segurança apenas para sincronizar seus repositórios.',
+	'Delete integration': 'Excluir integração',
+	Delete: 'Excluir',
+	Edit: 'Editar',
+	'Save changes': 'Salvar alterações',
+	Connect: 'Conectar',
+	Cancel: 'Cancelar',
+	'Saving…': 'Salvando…',
+	'Deleting…': 'Excluindo…',
+	'Are you sure you want to {action}?': 'Tem certeza de que deseja {action}?',
+	delete: 'excluir',
+	'Token is required': 'Token é obrigatório',
+};
+
+export default integrations;

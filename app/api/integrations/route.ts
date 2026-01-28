@@ -1,0 +1,115 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { requireServerAuth } from '@/lib/better-auth/server';
+import IntegrationsService from '@/domain/integrations/integrations.service';
+import { z } from 'zod';
+
+const bodySchema = z.object({
+	provider: z.enum(['gitlab']),
+	token: z.string().min(1),
+	status: z.enum(['pending', 'connected', 'disconnected']).optional(),
+});
+
+export async function GET() {
+	return requireServerAuth(async ({ session }) => {
+		const service = new IntegrationsService();
+		const items = await service.listUserIntegrations(session.user.id);
+		return NextResponse.json({ data: items });
+	});
+}
+
+export async function POST(request: NextRequest) {
+	return requireServerAuth(async ({ session }) => {
+		try {
+			const json = await request.json();
+			const parsed = bodySchema.safeParse(json);
+			if (!parsed.success) {
+				return NextResponse.json(
+					{ error: { message: 'Invalid payload' } },
+					{ status: 400 },
+				);
+			}
+
+			const service = new IntegrationsService();
+			await service.createIntegration(session.user.id, parsed.data);
+
+			return NextResponse.json({ data: { success: true } }, { status: 201 });
+		} catch (error: any) {
+			return NextResponse.json(
+				{ error: { message: error.message || 'Failed to create integration' } },
+				{ status: 400 },
+			);
+		}
+	});
+}
+
+export async function PUT(request: NextRequest) {
+	return requireServerAuth(async ({ session }) => {
+		try {
+			const json = await request.json();
+			const id = Number(json.id);
+			if (!id || Number.isNaN(id)) {
+				return NextResponse.json(
+					{ error: { message: 'Invalid id' } },
+					{ status: 400 },
+				);
+			}
+
+			const parsed = bodySchema.partial().safeParse(json);
+			if (!parsed.success) {
+				return NextResponse.json(
+					{ error: { message: 'Invalid payload' } },
+					{ status: 400 },
+				);
+			}
+
+			const { provider, token, status } = parsed.data;
+
+			if (!provider && !token && !status) {
+				return NextResponse.json(
+					{ error: { message: 'Nothing to update' } },
+					{ status: 400 },
+				);
+			}
+
+			const service = new IntegrationsService();
+			await service.updateIntegration(session.user.id, id, {
+				provider,
+				token,
+				status,
+			});
+
+			return NextResponse.json({ data: { success: true } });
+		} catch (error: any) {
+			return NextResponse.json(
+				{ error: { message: error.message || 'Failed to update integration' } },
+				{ status: 400 },
+			);
+		}
+	});
+}
+
+export async function DELETE(request: NextRequest) {
+	return requireServerAuth(async ({ session }) => {
+		try {
+			const json = await request.json();
+			const id = Number(json.id);
+			if (!id || Number.isNaN(id)) {
+				return NextResponse.json(
+					{ error: { message: 'Invalid id' } },
+					{ status: 400 },
+				);
+			}
+
+			const service = new IntegrationsService();
+			await service.deleteIntegration(session.user.id, id);
+
+			return NextResponse.json({ data: { success: true } });
+		} catch (error: any) {
+			return NextResponse.json(
+				{ error: { message: error.message || 'Failed to delete integration' } },
+				{ status: 400 },
+			);
+		}
+	});
+}
+

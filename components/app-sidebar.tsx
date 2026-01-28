@@ -5,6 +5,7 @@ import {
 	IconDashboard,
 	IconInnerShadowTop,
 	IconSettings,
+	IconGlobe,
 } from '@tabler/icons-react';
 
 import { NavMain } from '@/components/nav-main';
@@ -32,6 +33,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 					title: 'Dashboard',
 					url: '',
 					icon: IconDashboard,
+				},
+				{
+					title: t('Integrations'),
+					url: '/integrations',
+					icon: IconGlobe,
 				},
 				// {
 				// 	title: 'Lifecycle',
