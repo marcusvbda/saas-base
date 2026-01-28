@@ -33,4 +33,12 @@ export default class Repository {
 		const [rows] = await this.db.execute(query, values);
 		return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 	}
+
+	async findMany(query: string, values: Record<string, any> = {}) {
+		if (!/^select\b/i.test(query.trim())) {
+			throw new Error('findOne method is strictly for SELECT statements.');
+		}
+		const [rows] = await this.db.execute(query, values);
+		return Array.isArray(rows) ? rows : [];
+	}
 }

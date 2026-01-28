@@ -9,7 +9,8 @@
 		"lint": "eslint",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
-		"migrate": "tsx database/migrate.ts"
+		"migrate": "tsx database/migrate.ts",
+		"queue": "tsx scripts/run-queue.ts"
 	},
 	"dependencies": {
 		"@dnd-kit/core": "^6.3.1",

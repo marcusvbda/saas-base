@@ -1,0 +1,11 @@
+{
+	"crons": [
+		{
+			"path": "/api/queue-jobs",
+			"schedule": "*/60 * * * * *",
+			"headers": {
+				"Authorization": "Bearer ${CRON_SECRET}"
+			}
+		}
+	]
+}
