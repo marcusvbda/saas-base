@@ -1,18 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { GitlabIcon, MoreHorizontalIcon, PlusIcon } from 'lucide-react';
+import { GitlabIcon, PlusIcon } from 'lucide-react';
 import { useLocale } from '@/hooks/use-locale';
 import { useSystem } from '@/providers/system.provider';
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from './ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
+import { EmptyState } from './empty-state';
 import {
 	Sheet,
 	SheetClose,
@@ -21,12 +16,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from './ui/sheet';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+
 import { toast } from 'sonner';
 import { InputPassword } from './ui/input-password';
 import {
@@ -195,21 +185,14 @@ export default function RepositoryProvider() {
 		return t('Pending');
 	};
 
-	const statusVariant = (status: IntegrationStatus) => {
-		if (status === 'connected') return 'secondary' as const;
-		if (status === 'disconnected') return 'destructive' as const;
-		return 'outline' as const;
-	};
-
 	const statusClasses = (status: IntegrationStatus) => {
 		if (status === 'pending') {
-			return 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300';
+			return 'border-border bg-muted text-primary';
 		}
 		if (status === 'connected') {
-			return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300';
+			return 'border-primary/30 bg-primary/10 text-primary';
 		}
-		// disconnected
-		return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300';
+		return 'border-destructive/30 bg-destructive/10 text-destructive';
 	};
 
 	const emptyState = useMemo(
@@ -228,10 +211,12 @@ export default function RepositoryProvider() {
 						)}
 					</p>
 				</div>
-				<Button onClick={openCreate}>
-					<PlusIcon className="mr-2 h-4 w-4" />
-					{t('Add integration')}
-				</Button>
+				{!emptyState && !isPending && (
+					<Button onClick={openCreate}>
+						<PlusIcon className="mr-2 h-4 w-4" />
+						{t('Add integration')}
+					</Button>
+				)}
 			</div>
 
 			{isPending && (
@@ -241,22 +226,15 @@ export default function RepositoryProvider() {
 			)}
 
 			{emptyState && (
-				<Card className="border-dashed">
-					<CardHeader>
-						<CardTitle>{t('No integrations yet')}</CardTitle>
-						<CardDescription>
-							{t(
-								'Start by adding a GitLab integration to connect your repositories.',
-							)}
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<Button variant="outline" onClick={openCreate}>
-							<PlusIcon className="mr-2 h-4 w-4" />
-							{t('Add your first integration')}
-						</Button>
-					</CardContent>
-				</Card>
+				<EmptyState
+					title={t('No integrations yet')}
+					description={t(
+						'Start by adding a GitLab integration to connect your repositories.',
+					)}
+					actionLabel={t('Add your first integration')}
+					onAction={openCreate}
+					actionIcon={<PlusIcon className="mr-2 h-4 w-4" />}
+				/>
 			)}
 
 			{!emptyState && (
@@ -282,47 +260,9 @@ export default function RepositoryProvider() {
 									</div>
 								</div>
 								<div className="flex items-center gap-2">
-									<Badge
-										variant={statusVariant(integration.status)}
-										className={statusClasses(integration.status)}
-									>
+									<Badge className={statusClasses(integration.status)}>
 										{statusLabel(integration.status)}
 									</Badge>
-									<DropdownMenu>
-										<DropdownMenuTrigger asChild>
-											<Button
-												variant="ghost"
-												size="icon"
-												className="h-8 w-8"
-												onClick={(e) => {
-													e.stopPropagation();
-													openEdit(integration);
-												}}
-											>
-												<MoreHorizontalIcon className="h-4 w-4" />
-											</Button>
-										</DropdownMenuTrigger>
-										<DropdownMenuContent align="end">
-											<DropdownMenuItem
-												onClick={(e) => {
-													e.stopPropagation();
-													openEdit(integration);
-												}}
-											>
-												{t('Edit')}
-											</DropdownMenuItem>
-											<DropdownMenuItem
-												className="text-destructive focus:text-destructive"
-												onClick={(e) => {
-													e.stopPropagation();
-													setSelected(integration);
-													handleDelete();
-												}}
-											>
-												{t('Delete')}
-											</DropdownMenuItem>
-										</DropdownMenuContent>
-									</DropdownMenu>
 								</div>
 							</CardHeader>
 						</Card>
@@ -344,20 +284,14 @@ export default function RepositoryProvider() {
 					</SheetHeader>
 					<div className="space-y-4 p-4 pt-0">
 						<div className="space-y-2">
-							<label className="text-sm font-medium">
-								{t('Provider')}
-							</label>
+							<label className="text-sm font-medium">{t('Provider')}</label>
 							<Select
 								value={provider}
-								onValueChange={(value) =>
-									setProvider(value as 'gitlab')
-								}
+								onValueChange={(value) => setProvider(value as 'gitlab')}
 								disabled={mode === 'edit'}
 							>
 								<SelectTrigger className="w-full">
-									<SelectValue
-										placeholder={t('Select a provider')}
-									/>
+									<SelectValue placeholder={t('Select a provider')} />
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value="gitlab">GitLab</SelectItem>
