@@ -13,15 +13,15 @@ export default function DashboardPage() {
 			description={t('Welcome to the dashboard')}
 		>
 			<PlanGate allowedPlans={['pro']}>
-				TESTE PLAN GATE
-				{/* <SSEClient
-					eventName="clock"
-					route="/api/sse"
+				TESTE PLAN GATE{' '}
+				{/* <SocketClient
+					eventName="on-time-update"
+					channelName="home-page"
 					initialData={{
-						time: new Date().toISOString().split('T')[1].split('.')[0],
+						message: new Date().toISOString().split('T')[1].split('.')[0],
 					}}
 					render={(data: any) => {
-						return <>server time is {data?.time}</>;
+						return <>server time is {data?.message}</>;
 					}}
 				/> */}
 			</PlanGate>

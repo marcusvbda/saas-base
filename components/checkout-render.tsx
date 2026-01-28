@@ -1,8 +1,6 @@
 'use client';
-import SSEClient from '@/lib/sse/client';
 import { useSystem } from '@/providers/system.provider';
 import { loadStripe } from '@stripe/stripe-js';
-import { notFound } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 
 interface IProps {
@@ -47,19 +45,5 @@ export default function CheckoutRender({ clientSecret, sessionId }: IProps) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [clientSecret, sessionId]);
 
-	return (
-		<SSEClient
-			eventName={`check-checkout-session-${sessionId}`}
-			route={`/api/checkout?sessionId=${sessionId}`}
-			initialData={{
-				session_id: sessionId,
-			}}
-			render={(data: any) => {
-				if (!data?.session_id) {
-					return notFound();
-				}
-				return <div ref={checkoutRef} className="w-full" />;
-			}}
-		/>
-	);
+	return <div ref={checkoutRef} className="w-full" />;
 }
