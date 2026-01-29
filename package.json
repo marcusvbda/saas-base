@@ -9,8 +9,7 @@
 		"lint": "eslint",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
-		"migrate": "tsx database/migrate.ts",
-		"queue": "tsx scripts/run-queue.ts"
+		"migrate": "tsx database/migrate.ts"
 	},
 	"dependencies": {
 		"@dnd-kit/core": "^6.3.1",
@@ -34,6 +33,7 @@
 		"@tabler/icons-react": "^3.36.1",
 		"@tanstack/react-query": "^5.90.16",
 		"@tanstack/react-table": "^8.21.3",
+		"@upstash/qstash": "^2.9.0",
 		"bcryptjs": "^3.0.3",
 		"better-auth": "^1.4.10",
 		"class-variance-authority": "^0.7.1",
