@@ -44,5 +44,8 @@ export default class IntegrationsService {
 		}
 		await this.repository.delete(id, userId);
 	}
-}
 
+	async validateTokenStatus(payload: { id: string | number; token: string }) {
+		console.log('validateTokenStatus', payload);
+	}
+}

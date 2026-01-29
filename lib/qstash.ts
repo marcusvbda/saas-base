@@ -4,18 +4,22 @@ const qstash = new Client({
 	token: process.env.QSTASH_TOKEN!,
 });
 
-export const publishJson = async (url: string, body: any) => {
+export interface IBody {
+	service: string;
+	action: string;
+	payload: any;
+}
+
+export const publishJson = async (url: string, body: IBody) => {
 	await qstash.publishJSON({
 		url: `${process.env.QSTASH_CALLBACK_URL}/${url}`,
 		body,
 	});
 };
 
-// DISPATCHER
-// await publishJson('/api/test/b', { test: 'abc' });
-
-//CALLBACK
-// export const POST = verifySignatureAppRouter(async (req: Request) => {
-// 	const body = await req.json();
-// 	return NextResponse.json({ success: true, body });
+// DISPATCHER EXAMPLE
+// await publishJson('/api/webhooks/qstash', {
+// 	service: 'IntegrationsService',
+// 	action: 'validateTokenStatus',
+// 	payload: { id: '123', token: '1234567890' },
 // });
