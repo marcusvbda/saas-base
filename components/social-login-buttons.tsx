@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { signIn } from '@/lib/better-auth/auth-client';
 import { useLocale } from '@/hooks/use-locale';
 import { useSearchParams } from 'next/navigation';
-import { useState } from 'react';
 import { toast } from 'sonner';
+import { useMutation } from '@tanstack/react-query';
 
 interface SocialLoginButtonsProps {
 	hasGoogle?: boolean;
@@ -19,35 +19,40 @@ export function SocialLoginButtons({
 	const { t } = useLocale();
 	const searchParams = useSearchParams();
 	const redirect = searchParams.get('redirect') || '/';
-	const [isLoading, setIsLoading] = useState<string | null>(null);
+
+	const socialLoginMutation = useMutation({
+		mutationFn: async ({
+			provider,
+			callbackURL,
+		}: {
+			provider: 'google' | 'apple';
+			callbackURL: string;
+		}) => {
+			const result = await (signIn as any).social({
+				provider,
+				callbackURL,
+			});
+			if (result.error) {
+				throw new Error(result.error.message || t('Failed to sign in'));
+			}
+			return result;
+		},
+		onSuccess: (result) => {
+			if (result.url) {
+				window.location.href = result.url;
+			}
+		},
+		onError: (error: Error) => {
+			toast.error(error.message || t('Failed to sign in'));
+		},
+	});
 
 	if (!hasGoogle && !hasApple) {
 		return null;
 	}
 
-	const handleSocialLogin = async (provider: 'google' | 'apple') => {
-		setIsLoading(provider);
-		try {
-			// Better-auth uses signIn.social() method
-			const result = await (signIn as any).social({
-				provider,
-				callbackURL: redirect,
-			});
-
-			if (result.error) {
-				toast.error(result.error.message || t('Failed to sign in'));
-				setIsLoading(null);
-			} else if (result.url) {
-				// Redirect to OAuth provider
-				window.location.href = result.url;
-			} else {
-				// If no URL, the redirect might be handled automatically
-				setIsLoading(null);
-			}
-		} catch (error: any) {
-			toast.error(error.message || t('Failed to sign in'));
-			setIsLoading(null);
-		}
+	const handleSocialLogin = (provider: 'google' | 'apple') => {
+		socialLoginMutation.mutate({ provider, callbackURL: redirect });
 	};
 
 	return (
@@ -68,10 +73,11 @@ export function SocialLoginButtons({
 						variant="outline"
 						type="button"
 						onClick={() => handleSocialLogin('google')}
-						disabled={isLoading !== null}
+						disabled={socialLoginMutation.isPending}
 						className="w-full"
 					>
-						{isLoading === 'google' ? (
+						{socialLoginMutation.isPending &&
+						socialLoginMutation.variables?.provider === 'google' ? (
 							<>
 								<svg
 									className="mr-2 h-4 w-4 animate-spin"
@@ -129,10 +135,11 @@ export function SocialLoginButtons({
 						variant="outline"
 						type="button"
 						onClick={() => handleSocialLogin('apple')}
-						disabled={isLoading !== null}
+						disabled={socialLoginMutation.isPending}
 						className="w-full"
 					>
-						{isLoading === 'apple' ? (
+						{socialLoginMutation.isPending &&
+						socialLoginMutation.variables?.provider === 'apple' ? (
 							<>
 								<svg
 									className="mr-2 h-4 w-4 animate-spin"

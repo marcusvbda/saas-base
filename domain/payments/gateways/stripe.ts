@@ -34,6 +34,21 @@ export default class StripeGateway {
 		return customer.id;
 	}
 
+	/**
+	 * Returns the currency of the customer's existing subscription/invoice if any.
+	 * Stripe does not allow mixing currencies on a single customer.
+	 */
+	async getCustomerCurrency(customerId: string): Promise<string | null> {
+		const subscriptions = await this.stripe.subscriptions.list({
+			customer: customerId,
+			status: 'all',
+			limit: 1,
+		});
+		const currency =
+			subscriptions.data[0]?.items?.data?.[0]?.price?.currency ?? null;
+		return currency ? String(currency).toLowerCase() : null;
+	}
+
 	async createSessionCheckout(options: CheckoutSessionOptions) {
 		const {
 			mode,

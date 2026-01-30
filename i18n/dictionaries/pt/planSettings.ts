@@ -9,8 +9,10 @@ const planSettings = {
 	Free: 'Free',
 	Basic: 'Básico',
 	Pro: 'Pro',
+	'Free features': 'Recursos gratuitos',
 	'Essential features': 'Recursos essenciais',
 	'Advanced features': 'Recursos avançados',
+	'Failed to cancel subscription': 'Falha ao cancelar assinatura',
 	'Failed to update plan': 'Falha ao atualizar plano',
 	'Upgrade your plan to access this feature':
 		'Atualize seu plano para acessar esta funcionalidade',
@@ -18,6 +20,8 @@ const planSettings = {
 		'Funcionalidade restrita a planos específicos',
 	'This feature is not available for your plan. Upgrade your plan to access this feature':
 		'Esta funcionalidade não está disponível para seu plano. Atualize seu plano para acessar esta funcionalidade',
+	'This feature is not available for your plan. Upgrade your plan to access this feature.':
+		'Esta funcionalidade não está disponível para seu plano. Atualize seu plano para acessar esta funcionalidade.',
 	'Upgrade Plan': 'Atualizar Plano',
 	'Subscribe to a plan': 'Assinar um Plano',
 	'Plan updated successfully': 'Plano atualizado com sucesso',

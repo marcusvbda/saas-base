@@ -15,7 +15,7 @@ import { LocaleLink } from '@/components/locale';
 import { toast } from 'sonner';
 import { useLocale } from '@/hooks/use-locale';
 import { Button } from '@/components/ui/button';
-import { useSystem } from '@/providers/system.provider';
+import { useMutation } from '@tanstack/react-query';
 
 export default function ForgotPasswordPage() {
 	const { t } = useLocale();
@@ -27,42 +27,39 @@ export default function ForgotPasswordPage() {
 		email: '',
 		errors: null,
 	});
-	const { startTransition } = useSystem();
 	const { router } = useLocale();
+
+	const forgotPasswordMutation = useMutation({
+		mutationFn: async (email: string) => {
+			const result = await forgotPassword.email({ email });
+			if (result.error) throw new Error(result.error.message);
+			return result;
+		},
+		onSuccess: () => {
+			toast.success(t('Reset password email sent'));
+			router.push('/sign-in');
+		},
+		onError: (error: Error) => {
+			setForm((prev: any) => ({
+				...prev,
+				errors: { email: error.message },
+			}));
+		},
+	});
 
 	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
 		try {
 			const validatedFields: any = await getValidatedParams(form, formSchema);
 			if (!validatedFields.success) {
-				return setForm({
-					...form,
+				setForm((prev: any) => ({
+					...prev,
 					errors: validatedFields.data,
-				});
+				}));
+				return;
 			}
-
-			startTransition(async () => {
-				setForm({
-					...form,
-					errors: null,
-				});
-
-				const result = await forgotPassword.email({
-					email: validatedFields.data.email,
-				});
-
-				if (result.error) {
-					return setForm({
-						...form,
-						errors: {
-							email: result.error.message,
-						},
-					});
-				} else {
-					toast.success(t('Reset password email sent'));
-					router.push('/sign-in');
-				}
-			});
+			setForm((prev: any) => ({ ...prev, errors: null }));
+			forgotPasswordMutation.mutate(validatedFields.data.email);
 		} catch (error: any) {
 			toast.error(error.message as string);
 		}
@@ -97,8 +94,14 @@ export default function ForgotPasswordPage() {
 								</FieldError>
 							</FieldContent>
 						</Field>
-						<Button type="submit" className="w-full">
-							{t('Send reset password email')}
+						<Button
+							type="submit"
+							className="w-full"
+							disabled={forgotPasswordMutation.isPending}
+						>
+							{forgotPasswordMutation.isPending
+								? t('Loading…')
+								: t('Send reset password email')}
 						</Button>
 						<div className="text-center">
 							<LocaleLink

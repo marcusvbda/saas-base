@@ -1,6 +1,5 @@
 'use client';
 
-import { Activity } from 'react';
 import { useLocale } from '@/hooks/use-locale';
 import BasePage from '../base-page';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,13 +36,7 @@ export default function IntegrationsPage() {
 				/>
 				<Card className="w-full space-y-1">
 					<CardContent>
-						<Activity
-							mode={
-								activeSection === 'repository-provider' ? 'visible' : 'hidden'
-							}
-						>
-							<RepositoryProvider />
-						</Activity>
+						{activeSection === 'repository-provider' && <RepositoryProvider />}
 					</CardContent>
 				</Card>
 			</div>

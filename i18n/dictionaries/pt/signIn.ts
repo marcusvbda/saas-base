@@ -1,5 +1,6 @@
 const signIn = {
 	Login: 'Entrar',
+	'Signing in…': 'Entrando…',
 	'Enter your credentials to access your account':
 		'Digite suas credenciais para acessar sua conta',
 	'Welcome back': 'Bem-vindo de volta',

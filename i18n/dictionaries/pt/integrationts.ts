@@ -2,11 +2,12 @@ const integrations = {
 	Integrations: 'Integrações',
 	'Manage your integrations': 'Gerencie suas integrações',
 	'Repository Provider': 'Provedor de Repositório',
+	Provider: 'Provedor',
+	'Select a provider': 'Selecione um provedor',
 	'Repository providers': 'Provedores de repositório',
 	'Connect your code hosting providers to automatically use data from your repositories.':
 		'Conecte seus provedores de código para usar automaticamente os dados dos seus repositórios.',
 	'Add integration': 'Adicionar integração',
-	'Loading integrations…': 'Carregando integrações…',
 	'No integrations yet': 'Nenhuma integração ainda',
 	'Start by adding a GitLab integration to connect your repositories.':
 		'Comece adicionando uma integração com o GitLab para conectar seus repositórios.',

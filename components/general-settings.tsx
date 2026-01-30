@@ -4,18 +4,29 @@ import { useLocale } from '@/hooks/use-locale';
 import SectionSettings from './section-settings';
 import z from 'zod';
 import { useSession } from '@/providers/session.provider';
-import { useEffect, useState } from 'react';
+
+const UTC_OFFSETS = Array.from({ length: 25 }, (_, i) => {
+	const offset = i - 12;
+	if (offset === 0) return 'UTC±00';
+	return `UTC${offset > 0 ? '+' : ''}${offset.toString().padStart(2, '0')}`;
+});
 
 export default function GeneralSettings() {
-	const { t, locale } = useLocale();
+	const { t } = useLocale();
 	const { session, setSession } = useSession();
-	const [isClient, setIsClient] = useState(false);
 
-	useEffect(() => {
-		setIsClient(true);
-	}, []);
+	const formatUTCOffset = (hours: number) => {
+		if (hours === 0) return 'UTC±00';
+		const sign = hours > 0 ? '+' : '';
+		return `UTC${sign}${hours.toString().padStart(2, '0')}`;
+	};
 
-	if (!isClient) return null;
+	const getCurrentTimezone = () => {
+		const offsetMinutes = new Date().getTimezoneOffset();
+		const offsetHours = -offsetMinutes / 60;
+		const currentOffset = formatUTCOffset(offsetHours);
+		return currentOffset;
+	};
 
 	return (
 		<SectionSettings
@@ -29,9 +40,7 @@ export default function GeneralSettings() {
 				});
 			}}
 			initialData={{
-				timezone:
-					session?.settings?.timezone ||
-					Intl.DateTimeFormat().resolvedOptions().timeZone,
+				timezone: session?.settings?.timezone || getCurrentTimezone(),
 			}}
 			fields={[
 				{
@@ -39,16 +48,7 @@ export default function GeneralSettings() {
 					name: 'timezone',
 					type: 'select',
 					placeholder: t('Select your timezone'),
-					description: (form: any) => {
-						if (!form.timezone) return '';
-						const tzLocale = ['pt'].includes(locale) ? 'pt-BR' : 'en-US';
-
-						const formattedSelectedTz = new Date().toLocaleString(tzLocale, {
-							timeZone: form.timezone,
-						});
-						return formattedSelectedTz;
-					},
-					options: Intl.supportedValuesOf('timeZone').map((tz) => ({
+					options: UTC_OFFSETS.map((tz) => ({
 						label: tz,
 						value: tz,
 					})),

@@ -12,19 +12,7 @@ export default function DashboardPage() {
 			title={t('Dashboard')}
 			description={t('Welcome to the dashboard')}
 		>
-			<PlanGate allowedPlans={['pro']}>
-				TESTE PLAN GATE{' '}
-				{/* <SocketClient
-					eventName="on-time-update"
-					channelName="home-page"
-					initialData={{
-						message: new Date().toISOString().split('T')[1].split('.')[0],
-					}}
-					render={(data: any) => {
-						return <>server time is {data?.message}</>;
-					}}
-				/> */}
-			</PlanGate>
+			<PlanGate allowedPlans={['pro']}>TESTE PLAN GATE </PlanGate>
 		</BasePage>
 	);
 }

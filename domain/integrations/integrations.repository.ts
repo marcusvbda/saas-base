@@ -1,6 +1,10 @@
 import Repository from '@/database/repository';
+import { publishJson } from '@/lib/qstash';
 
-export type RepositoryIntegrationStatus = 'pending' | 'connected' | 'disconnected';
+export type RepositoryIntegrationStatus =
+	| 'pending'
+	| 'connected'
+	| 'disconnected';
 
 export type RepositoryIntegration = {
 	id: number;
@@ -19,6 +23,13 @@ export type RepositoryIntegrationInput = {
 };
 
 export default class IntegrationsRepository extends Repository {
+	async findById(id: string) {
+		return await this.findOne(
+			'SELECT * FROM `repository_integrations` WHERE `id` = :id',
+			{ id },
+		);
+	}
+
 	async findAllByUserId(userId: string) {
 		return await this.db
 			.execute(
@@ -36,21 +47,34 @@ export default class IntegrationsRepository extends Repository {
 	}
 
 	async create(userId: string, data: RepositoryIntegrationInput) {
-		const status = data.status ?? 'pending';
-		await this.execute(
+		const result = await this.execute(
 			`INSERT INTO \`repository_integrations\` (\`user_id\`, \`provider\`, \`token\`, \`status\`)
        VALUES (:userId, :provider, :token, :status)`,
 			{
 				userId,
 				provider: data.provider,
 				token: data.token,
-				status,
+				status: 'pending',
 			},
 		);
+
+		await publishJson({
+			service: 'IntegrationsService',
+			action: 'validateTokenStatus',
+			payload: { id: result.insertId },
+		});
 	}
 
-	async update(id: number, userId: string, data: Partial<RepositoryIntegrationInput>) {
-		const allowed: (keyof RepositoryIntegrationInput)[] = ['provider', 'token', 'status'];
+	async update(
+		id: number,
+		userId: string,
+		data: Partial<RepositoryIntegrationInput>,
+	) {
+		const allowed: (keyof RepositoryIntegrationInput)[] = [
+			'provider',
+			'token',
+			'status',
+		];
 		const updates: string[] = [];
 		const params: Record<string, unknown> = { id, userId };
 
@@ -78,4 +102,3 @@ export default class IntegrationsRepository extends Repository {
 		);
 	}
 }
-

@@ -6,14 +6,13 @@ import { z } from 'zod';
 const bodySchema = z.object({
 	provider: z.enum(['gitlab']),
 	token: z.string().min(1),
-	status: z.enum(['pending', 'connected', 'disconnected']).optional(),
 });
 
 export async function GET() {
 	return requireServerAuth(async ({ session }) => {
 		const service = new IntegrationsService();
 		const items = await service.listUserIntegrations(session.user.id);
-		return NextResponse.json({ data: items });
+		return NextResponse.json(items);
 	});
 }
 
@@ -28,7 +27,6 @@ export async function POST(request: NextRequest) {
 					{ status: 400 },
 				);
 			}
-
 			const service = new IntegrationsService();
 			await service.createIntegration(session.user.id, parsed.data);
 
@@ -62,9 +60,9 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
-			const { provider, token, status } = parsed.data;
+			const { provider, token } = parsed.data;
 
-			if (!provider && !token && !status) {
+			if (!provider && !token) {
 				return NextResponse.json(
 					{ error: { message: 'Nothing to update' } },
 					{ status: 400 },
@@ -75,7 +73,7 @@ export async function PUT(request: NextRequest) {
 			await service.updateIntegration(session.user.id, id, {
 				provider,
 				token,
-				status,
+				status: 'pending',
 			});
 
 			return NextResponse.json({ data: { success: true } });
@@ -112,4 +110,3 @@ export async function DELETE(request: NextRequest) {
 		}
 	});
 }
-

@@ -2,15 +2,19 @@
 
 import { useSession } from '@/providers/session.provider';
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import PlanSelector from './plan-selector';
 import { toast } from 'sonner';
 import { useLocale } from '@/hooks/use-locale';
 import { Sheet, SheetContent } from './ui/sheet';
-import CheckoutRender from './checkout-render';
-import { useSystem } from '@/providers/system.provider';
 import { DEFAULT_PLAN } from '@/constants/plans';
+
+const CheckoutRender = dynamic(() => import('./checkout-render'), {
+	ssr: false,
+});
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
+import { useMutation } from '@tanstack/react-query';
 
 type SubscriptionDetail = {
 	plan: string;
@@ -26,37 +30,30 @@ export default function PlanSettings() {
 	const [detail, setDetail] = useState<SubscriptionDetail>(
 		session?.subscriptionDetail ?? null,
 	);
-	const { startTransition } = useSystem();
 	const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 	const [clientSecret, setClientSecret] = useState<string | null>(null);
 	const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(
 		null,
 	);
-	const [isCanceling, setIsCanceling] = useState(false);
-	const [isReactivating, setIsReactivating] = useState(false);
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		setPlan(session?.subscription ?? DEFAULT_PLAN);
 		setDetail(session?.subscriptionDetail ?? null);
 	}, [session?.subscription, session?.subscriptionDetail]);
 
-	const cancelSubscription = async () => {
-		const confirmed = window.confirm(
-			t('Are you sure you want to {action} your subscription?', {
-				action: t('cancel'),
-			}),
-		);
-		if (!confirmed) return;
-		setIsCanceling(true);
-		try {
-			const response = await fetch(`/api/auth/subscription`, {
+	const cancelMutation = useMutation({
+		mutationFn: async () => {
+			const response = await fetch('/api/auth/subscription', {
 				method: 'DELETE',
 			});
 			const data = await response.json();
 			if (!response.ok) {
-				toast.error(data?.error ?? t('Failed to cancel subscription'));
-				return;
+				throw new Error(data?.error ?? t('Failed to cancel subscription'));
 			}
+			return data;
+		},
+		onSuccess: (data) => {
 			const periodEnd = data.currentPeriodEnd
 				? new Date(data.currentPeriodEnd)
 				: null;
@@ -82,18 +79,18 @@ export default function PlanSettings() {
 					data.currentPeriodEnd ?? detail?.currentPeriodEnd ?? null,
 			};
 			setDetail(newDetail);
-			await setSession({
-				...session,
+			setSession((prev: any) => ({
+				...prev,
 				subscriptionDetail: newDetail,
-			});
-		} finally {
-			setIsCanceling(false);
-		}
-	};
+			}));
+		},
+		onError: (error: Error) => {
+			toast.error(error.message);
+		},
+	});
 
-	const reactivateSubscription = async () => {
-		setIsReactivating(true);
-		try {
+	const reactivateMutation = useMutation({
+		mutationFn: async () => {
 			const response = await fetch('/api/auth/subscription', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
@@ -101,95 +98,129 @@ export default function PlanSettings() {
 			});
 			const data = await response.json();
 			if (!response.ok) {
-				toast.error(data?.error ?? t('Failed to reactivate subscription'));
-				return;
+				throw new Error(data?.error ?? t('Failed to reactivate subscription'));
 			}
+			return data;
+		},
+		onSuccess: () => {
 			toast.success(t('Subscription reactivated'));
 			const newDetail: SubscriptionDetail = detail
 				? { ...detail, cancelAtPeriodEnd: false }
 				: null;
 			setDetail(newDetail);
-			await setSession({
-				...session,
+			setSession((prev: any) => ({
+				...prev,
 				subscriptionDetail: newDetail,
-			});
-		} finally {
-			setIsReactivating(false);
-		}
-	};
+			}));
+		},
+		onError: (error: Error) => {
+			toast.error(error.message);
+		},
+	});
 
-	const updateSubscription = async (plan: string, currency: 'BRL' | 'USD') => {
+	const updateSubscriptionMutation = useMutation({
+		mutationFn: async ({
+			plan: newPlan,
+			currency,
+		}: {
+			plan: string;
+			currency: 'BRL' | 'USD';
+		}) => {
+			const response = await fetch('/api/auth/subscription', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ plan: newPlan, currency }),
+			});
+			const data = await response.json();
+			if (!response.ok) {
+				throw new Error(data?.error ?? t('Failed to update plan'));
+			}
+			return data;
+		},
+		onSuccess: (_, variables) => {
+			toast.success(t('Plan updated successfully'));
+			setPlan(variables.plan);
+			setSession((prev: any) => ({
+				...prev,
+				subscription: variables.plan,
+			}));
+		},
+		onError: (error: Error) => {
+			toast.error(error.message);
+		},
+	});
+
+	const createCheckoutMutation = useMutation({
+		mutationFn: async ({
+			plan: newPlan,
+			currency,
+		}: {
+			plan: string;
+			currency: 'BRL' | 'USD';
+		}) => {
+			const response = await fetch('/api/checkout', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					metadata: {
+						resource_type: 'plan_subscription',
+						resource_id: `${session?.user.id}|${newPlan}`,
+					},
+					locale,
+					currency,
+				}),
+			});
+			if (!response.ok) {
+				const err = await response.json().catch(() => ({}));
+				throw new Error(err?.error ?? t('Failed to create checkout session'));
+			}
+			return response.json();
+		},
+		onSuccess: (data: { clientSecret?: string; sessionId?: string }) => {
+			if (data.clientSecret && data.sessionId) {
+				setClientSecret(data.clientSecret);
+				setCheckoutSessionId(data.sessionId);
+				setIsCheckoutOpen(true);
+			}
+		},
+		onError: (error: Error) => {
+			toast.error(error.message);
+		},
+	});
+
+	const handleCancelClick = () => {
 		const confirmed = window.confirm(
 			t('Are you sure you want to {action} your subscription?', {
-				action: t('change'),
+				action: t('cancel'),
 			}),
 		);
-		if (!confirmed) return;
-		const response = await fetch('/api/auth/subscription', {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ plan, currency }),
-		});
-		const data = await response.json();
-		if (!response.ok) {
-			toast.error(data?.error ?? t('Failed to update plan'));
-			return;
-		}
-		toast.success(t('Plan updated successfully'));
-		setPlan(plan);
-		await setSession({
-			...session,
-			subscription: plan,
-		});
+		if (confirmed) cancelMutation.mutate();
 	};
 
-	const createCheckoutSession = async (
-		plan: string,
-		currency: 'BRL' | 'USD',
-	) => {
-		const response = await fetch('/api/checkout', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				metadata: {
-					resource_type: 'plan_subscription',
-					resource_id: `${session?.user.id}|${plan}`,
-				},
-				locale,
-				currency,
-			}),
-		});
-		if (!response.ok) {
-			toast.error(t('Failed to create checkout session'));
+	const handleSelectedPlan = async (newPlan: string) => {
+		const currentPlan = session?.subscription;
+		if (newPlan === currentPlan) return;
+
+		if (newPlan === 'free') {
+			handleCancelClick();
 			return;
 		}
-		const { clientSecret: secret, sessionId } = await response.json();
-		if (secret && sessionId) {
-			setClientSecret(secret);
-			setCheckoutSessionId(sessionId);
-			setIsCheckoutOpen(true);
+		const hasPaidSubscription = currentPlan && currentPlan !== 'free';
+		const isChangingPaidPlan = hasPaidSubscription && currentPlan !== newPlan;
+		const currency = locale === 'pt' ? 'BRL' : 'USD';
+
+		if (isChangingPaidPlan) {
+			const confirmed = window.confirm(
+				t('Are you sure you want to {action} your subscription?', {
+					action: t('change'),
+				}),
+			);
+			if (confirmed) {
+				updateSubscriptionMutation.mutate({ plan: newPlan, currency });
+			}
+			return;
 		}
-	};
-
-	const handleSelectedPlan = (plan: string) => {
-		startTransition(async () => {
-			const currentPlan = session?.subscription;
-			if (plan === currentPlan) return;
-
-			if (plan === 'free') {
-				return await cancelSubscription();
-			}
-			const hasPaidSubscription = currentPlan && currentPlan !== 'free';
-			const isChangingPaidPlan = hasPaidSubscription && currentPlan !== plan;
-
-			const currency = locale === 'pt' ? 'BRL' : 'USD';
-			if (isChangingPaidPlan) {
-				await updateSubscription(plan, currency);
-				return;
-			}
-
-			await createCheckoutSession(plan, currency);
-		});
+		createCheckoutMutation.mutate({ plan: newPlan, currency });
 	};
 
 	const periodEndFormatted = detail?.currentPeriodEnd
@@ -222,25 +253,33 @@ export default function PlanSettings() {
 					<Button
 						variant="outline"
 						size="sm"
-						onClick={reactivateSubscription}
-						disabled={isReactivating}
+						onClick={() => reactivateMutation.mutate()}
+						disabled={reactivateMutation.isPending}
 					>
-						{isReactivating ? t('Reactivating…') : t('Reactivate subscription')}
+						{reactivateMutation.isPending
+							? t('Reactivating…')
+							: t('Reactivate subscription')}
 					</Button>
 				</div>
 			)}
 
-			<PlanSelector value={plan} onChange={(p) => handleSelectedPlan(p)} />
+			<PlanSelector
+				value={plan}
+				onChange={(p) => handleSelectedPlan(p)}
+				loading={createCheckoutMutation.isPending}
+			/>
 
 			{plan !== 'free' && !detail?.cancelAtPeriodEnd && (
 				<div className="flex justify-end">
 					<Button
 						variant="ghost"
 						className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-						onClick={cancelSubscription}
-						disabled={isCanceling}
+						onClick={handleCancelClick}
+						disabled={cancelMutation.isPending}
 					>
-						{isCanceling ? t('Canceling…') : t('Cancel subscription')}
+						{cancelMutation.isPending
+							? t('Canceling…')
+							: t('Cancel subscription')}
 					</Button>
 				</div>
 			)}
@@ -256,7 +295,7 @@ export default function PlanSettings() {
 				}}
 			>
 				<SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
-					{clientSecret && checkoutSessionId && (
+					{clientSecret && checkoutSessionId && isCheckoutOpen && (
 						<CheckoutRender
 							clientSecret={clientSecret}
 							sessionId={checkoutSessionId}

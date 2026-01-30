@@ -13,7 +13,7 @@ import {
 import { InputPassword } from '@/components/ui/input-password';
 import { useLocale } from '@/hooks/use-locale';
 import { Button } from '@/components/ui/button';
-import { useSystem } from '@/providers/system.provider';
+import { useMutation } from '@tanstack/react-query';
 
 export default function ClientPage({ token }: { token: string }) {
 	const { t, router } = useLocale();
@@ -35,50 +35,45 @@ export default function ClientPage({ token }: { token: string }) {
 		confirmPassword: '',
 		errors: null,
 	});
-	const { startTransition } = useSystem();
+
+	const resetPasswordMutation = useMutation({
+		mutationFn: async (newPassword: string) => {
+			const response = await fetch('/api/auth/reset-password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ token, newPassword }),
+			});
+			const result = await response.json();
+			if (!response.ok || result.error) {
+				throw new Error(result.error?.message ?? 'Failed to reset password');
+			}
+			return result;
+		},
+		onSuccess: () => {
+			toast.success(t('Password updated successfully'));
+			router.push('/sign-in');
+		},
+		onError: (error: Error) => {
+			setForm((prev: any) => ({
+				...prev,
+				errors: { password: error.message },
+			}));
+		},
+	});
 
 	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
 		try {
 			const validatedFields: any = await getValidatedParams(form, formSchema);
 			if (!validatedFields.success) {
-				return setForm({
-					...form,
+				setForm((prev: any) => ({
+					...prev,
 					errors: validatedFields.data,
-				});
+				}));
+				return;
 			}
-
-			startTransition(async () => {
-				setForm({
-					...form,
-					errors: null,
-				});
-
-				const response = await fetch('/api/auth/reset-password', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					body: JSON.stringify({
-						token,
-						newPassword: validatedFields.data.password,
-					}),
-				});
-
-				const result = await response.json();
-
-				if (!response.ok || result.error) {
-					return setForm({
-						...form,
-						errors: {
-							password: result.error?.message,
-						},
-					});
-				} else {
-					toast.success(t('Password updated successfully'));
-					router.push('/sign-in');
-				}
-			});
+			setForm((prev: any) => ({ ...prev, errors: null }));
+			resetPasswordMutation.mutate(validatedFields.data.password);
 		} catch (err: any) {
 			toast.error(err.message);
 		}
@@ -197,8 +192,14 @@ export default function ClientPage({ token }: { token: string }) {
 								</FieldError>
 							</FieldContent>
 						</Field>
-						<Button type="submit" className="w-full">
-							{t('Update Password')}
+						<Button
+							type="submit"
+							className="w-full"
+							disabled={resetPasswordMutation.isPending}
+						>
+							{resetPasswordMutation.isPending
+								? t('Updating…')
+								: t('Update Password')}
 						</Button>
 					</form>
 				</div>

@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { GitlabIcon, PlusIcon } from 'lucide-react';
 import { useLocale } from '@/hooks/use-locale';
-import { useSystem } from '@/providers/system.provider';
 import { Card, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -26,6 +25,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from './ui/select';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Loading from './loading';
+import SocketClient from './socket-client';
+import { Spinner } from './ui/spinner';
 
 type IntegrationStatus = 'pending' | 'connected' | 'disconnected';
 
@@ -43,35 +46,92 @@ type Mode = 'create' | 'edit';
 
 export default function RepositoryProvider() {
 	const { t } = useLocale();
-	const { startTransition, isPending } = useSystem();
-	const [items, setItems] = useState<Integration[]>([]);
 	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 	const [mode, setMode] = useState<Mode>('create');
 	const [selected, setSelected] = useState<Integration | null>(null);
 	const [token, setToken] = useState('');
 	const [provider, setProvider] = useState<'gitlab'>('gitlab');
+	const { data, isLoading } = useQuery({
+		queryKey: ['integrations'],
+		queryFn: () => fetch('/api/integrations').then((res) => res.json()),
+	});
+	const queryClient = useQueryClient();
 
-	useEffect(() => {
-		startTransition(async () => {
-			try {
-				const res = await fetch('/api/integrations', {
-					method: 'GET',
-				});
-				const json = await res.json();
-				if (!res.ok) {
-					throw new Error(
-						json?.error?.message || 'Failed to load integrations',
-					);
-				}
-				setItems(json.data ?? []);
-			} catch (error: any) {
-				// usamos a tradução capturada na montagem; evitar t nas deps para não criar loop
-				toast.error(error.message || t('Failed to load integrations'));
+	const createMutation = useMutation({
+		mutationFn: async (payload: { provider: 'gitlab'; token: string }) => {
+			const res = await fetch('/api/integrations', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload),
+			});
+			const json = await res.json();
+			if (!res.ok || json.error) {
+				throw new Error(json?.error?.message || 'Failed to create integration');
 			}
-		});
-		// carregamos apenas uma vez na montagem para evitar loop de fetch
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+			return json;
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['integrations'] });
+			toast.success(t('Integration created successfully'));
+			setToken('');
+			setIsDrawerOpen(false);
+		},
+		onError: (error: Error) => {
+			toast.error(error.message || t('Something went wrong'));
+		},
+	});
+
+	const updateMutation = useMutation({
+		mutationFn: async (payload: { id: number; token?: string }) => {
+			const res = await fetch('/api/integrations', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload),
+			});
+			const json = await res.json();
+			if (!res.ok || json.error) {
+				throw new Error(json?.error?.message || 'Failed to update integration');
+			}
+			return json;
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['integrations'] });
+			toast.success(t('Integration updated successfully'));
+			setToken('');
+			setIsDrawerOpen(false);
+		},
+		onError: (error: Error) => {
+			toast.error(error.message || t('Something went wrong'));
+		},
+	});
+
+	const deleteMutation = useMutation({
+		mutationFn: async (id: number) => {
+			const res = await fetch('/api/integrations', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id }),
+			});
+			const json = await res.json();
+			if (!res.ok || json.error) {
+				throw new Error(json?.error?.message || 'Failed to delete integration');
+			}
+			return json;
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['integrations'] });
+			toast.success(t('Integration deleted successfully'));
+			setIsDrawerOpen(false);
+		},
+		onError: (error: Error) => {
+			toast.error(error.message || t('Something went wrong'));
+		},
+	});
+
+	const isPending =
+		createMutation.isPending ||
+		updateMutation.isPending ||
+		deleteMutation.isPending;
 
 	const openCreate = () => {
 		setMode('create');
@@ -99,55 +159,16 @@ export default function RepositoryProvider() {
 			toast.error(t('Token is required'));
 			return;
 		}
-
-		startTransition(async () => {
-			try {
-				if (mode === 'create') {
-					const res = await fetch('/api/integrations', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							provider,
-							token,
-							status: 'pending',
-						}),
-					});
-					const json = await res.json();
-					if (!res.ok || json.error) {
-						throw new Error(
-							json?.error?.message || 'Failed to create integration',
-						);
-					}
-					toast.success(t('Integration created successfully'));
-				} else if (mode === 'edit' && selected) {
-					const res = await fetch('/api/integrations', {
-						method: 'PUT',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							id: selected.id,
-							token: token || undefined,
-						}),
-					});
-					const json = await res.json();
-					if (!res.ok || json.error) {
-						throw new Error(
-							json?.error?.message || 'Failed to update integration',
-						);
-					}
-					toast.success(t('Integration updated successfully'));
-				}
-
-				const listRes = await fetch('/api/integrations');
-				const listJson = await listRes.json();
-				if (listRes.ok) {
-					setItems(listJson.data ?? []);
-				}
-				setToken('');
-				setIsDrawerOpen(false);
-			} catch (error: any) {
-				toast.error(error.message || t('Something went wrong'));
-			}
-		});
+		if (mode === 'create') {
+			createMutation.mutate({ provider, token });
+			return;
+		}
+		if (selected) {
+			updateMutation.mutate({
+				id: selected.id,
+				token: token || undefined,
+			});
+		}
 	};
 
 	const handleDelete = () => {
@@ -156,48 +177,12 @@ export default function RepositoryProvider() {
 			t('Are you sure you want to {action}?', { action: t('delete') }),
 		);
 		if (!confirmed) return;
-
-		startTransition(async () => {
-			try {
-				const res = await fetch('/api/integrations', {
-					method: 'DELETE',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ id: selected.id }),
-				});
-				const json = await res.json();
-				if (!res.ok || json.error) {
-					throw new Error(
-						json?.error?.message || 'Failed to delete integration',
-					);
-				}
-				toast.success(t('Integration deleted successfully'));
-				setItems((prev) => prev.filter((item) => item.id !== selected.id));
-				setIsDrawerOpen(false);
-			} catch (error: any) {
-				toast.error(error.message || t('Something went wrong'));
-			}
-		});
-	};
-
-	const statusLabel = (status: IntegrationStatus) => {
-		if (status === 'connected') return t('Connected');
-		if (status === 'disconnected') return t('Disconnected');
-		return t('Pending');
-	};
-
-	const statusClasses = (status: IntegrationStatus) => {
-		if (status === 'pending') {
-			return 'border-border bg-muted text-primary';
-		}
-		if (status === 'connected') {
-			return 'border-primary/30 bg-primary/10 text-primary';
-		}
-		return 'border-destructive/30 bg-destructive/10 text-destructive';
+		deleteMutation.mutate(selected.id);
 	};
 
 	const emptyState = useMemo(
-		() => !isPending && (!items || items.length === 0),
-		[isPending, items],
+		() => !isLoading && (!data || data.length === 0),
+		[isLoading, data],
 	);
 
 	return (
@@ -211,7 +196,7 @@ export default function RepositoryProvider() {
 						)}
 					</p>
 				</div>
-				{!emptyState && !isPending && (
+				{!emptyState && !isLoading && (
 					<Button onClick={openCreate}>
 						<PlusIcon className="mr-2 h-4 w-4" />
 						{t('Add integration')}
@@ -219,11 +204,7 @@ export default function RepositoryProvider() {
 				)}
 			</div>
 
-			{isPending && (
-				<p className="text-muted-foreground text-sm">
-					{t('Loading integrations…')}
-				</p>
-			)}
+			{isLoading && <Loading />}
 
 			{emptyState && (
 				<EmptyState
@@ -239,33 +220,12 @@ export default function RepositoryProvider() {
 
 			{!emptyState && (
 				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-					{items.map((integration) => (
-						<Card
-							key={integration.id}
-							className="cursor-pointer transition hover:border-primary/40 hover:shadow-sm"
+					{data?.map((integration, index) => (
+						<IntegrationCard
+							integration={integration}
 							onClick={() => openEdit(integration)}
-						>
-							<CardHeader className="flex-row items-center justify-between gap-4">
-								<div className="flex items-center gap-3">
-									<div className="bg-primary/5 flex h-10 w-10 items-center justify-center rounded-lg">
-										<GitlabIcon className="h-5 w-5 text-primary" />
-									</div>
-									<div>
-										<CardTitle className="text-sm">
-											{t('GitLab workspace')}
-										</CardTitle>
-										<CardDescription className="text-xs">
-											{t('Personal access token')}
-										</CardDescription>
-									</div>
-								</div>
-								<div className="flex items-center gap-2">
-									<Badge className={statusClasses(integration.status)}>
-										{statusLabel(integration.status)}
-									</Badge>
-								</div>
-							</CardHeader>
-						</Card>
+							key={index}
+						/>
 					))}
 				</div>
 			)}
@@ -348,3 +308,72 @@ export default function RepositoryProvider() {
 		</div>
 	);
 }
+
+export const IntegrationCard = ({
+	integration,
+	onClick,
+}: {
+	integration: Integration;
+	onClick: () => void;
+}) => {
+	const statusLabel = (status: IntegrationStatus) => {
+		if (status === 'connected') return t('Connected');
+		if (status === 'disconnected') return t('Disconnected');
+		return (
+			<span className="flex items-center gap-2">
+				{t('Pending')} <Spinner className="size-2" />
+			</span>
+		);
+	};
+
+	const statusClasses = (status: IntegrationStatus) => {
+		if (status === 'disconnected') {
+			return 'border-red-500 text-red-500 bg-red-500/20';
+		}
+		if (status === 'connected') {
+			return 'border-green-500 text-green-500 bg-green-500/20';
+		}
+		return 'border-border bg-muted text-primary bg-muted';
+	};
+	const { t } = useLocale();
+
+	return (
+		<SocketClient
+			eventName="on-integration-status-update"
+			channelName={`integration-${integration.id}`}
+			initialData={integration}
+			render={(data: any) => {
+				return (
+					<Card
+						key={data.id}
+						className="cursor-pointer transition hover:border-primary/40 hover:shadow-sm"
+						onClick={onClick}
+					>
+						<CardHeader className="flex-row items-center justify-between gap-4">
+							<div className="flex items-center gap-3">
+								<div className="bg-primary/5 flex h-10 w-10 items-center justify-center rounded-lg">
+									<GitlabIcon className="h-5 w-5 text-primary" />
+								</div>
+								<div>
+									<CardTitle className="text-sm">
+										{data?.provider === 'gitlab' && 'GitLab workspace'}
+									</CardTitle>
+									<CardDescription className="text-xs">
+										{['gitlab'].includes(data?.provider)
+											? t('Personal access token')
+											: t('Personal access token')}
+									</CardDescription>
+								</div>
+							</div>
+							<div className="flex items-center gap-2">
+								<Badge className={statusClasses(data.status)}>
+									{statusLabel(data.status)}
+								</Badge>
+							</div>
+						</CardHeader>
+					</Card>
+				);
+			}}
+		/>
+	);
+};

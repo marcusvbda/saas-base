@@ -18,7 +18,7 @@ import { LocaleLink } from '@/components/locale';
 import { useLocale } from '@/hooks/use-locale';
 import { SocialLoginProvider } from '@/components/social-login-provider';
 import { Button } from '@/components/ui/button';
-import { useSystem } from '@/providers/system.provider';
+import { useMutation } from '@tanstack/react-query';
 
 const FragmentContent = () => {
 	useEffect(() => {
@@ -33,11 +33,39 @@ const FragmentContent = () => {
 	const searchParams = useSearchParams();
 	const redirect = searchParams.get('redirect') || '/';
 	const { router } = useLocale();
-	const { startTransition } = useSystem();
 	const [form, setForm] = useState<any>({
 		email: '',
 		password: '',
 		errors: null,
+	});
+
+	const signInMutation = useMutation({
+		mutationFn: async ({
+			email,
+			password,
+			callbackURL,
+		}: {
+			email: string;
+			password: string;
+			callbackURL: string;
+		}) => {
+			const result = await signIn.email({
+				email,
+				password,
+				callbackURL,
+			});
+			if (result.error) throw new Error(result.error.message);
+			return result;
+		},
+		onSuccess: () => {
+			router.push('/');
+		},
+		onError: (error: Error) => {
+			setForm((prev: any) => ({
+				...prev,
+				errors: { email: error.message },
+			}));
+		},
 	});
 
 	const handleSubmit = async (e: FormEvent) => {
@@ -45,33 +73,17 @@ const FragmentContent = () => {
 		try {
 			const validatedFields: any = await getValidatedParams(form, formSchema);
 			if (!validatedFields.success) {
-				return setForm({
-					...form,
+				setForm((prev: any) => ({
+					...prev,
 					errors: validatedFields.data,
-				});
+				}));
+				return;
 			}
-
-			startTransition(async () => {
-				setForm({
-					...form,
-					errors: null,
-				});
-				const result = await signIn.email({
-					email: validatedFields.data.email,
-					password: validatedFields.data.password,
-					callbackURL: redirect,
-				});
-
-				if (result.error) {
-					setForm({
-						...form,
-						errors: {
-							email: result.error.message,
-						},
-					});
-				} else {
-					router.push('/');
-				}
+			setForm((prev: any) => ({ ...prev, errors: null }));
+			signInMutation.mutate({
+				email: validatedFields.data.email,
+				password: validatedFields.data.password,
+				callbackURL: redirect,
 			});
 		} catch (error: any) {
 			toast.error(error.message as string);
@@ -128,8 +140,12 @@ const FragmentContent = () => {
 								{t('Forgot your password')}
 							</LocaleLink>
 						</div>
-						<Button type="submit" className="w-full">
-							{t('Login')}
+						<Button
+							type="submit"
+							className="w-full"
+							disabled={signInMutation.isPending}
+						>
+							{signInMutation.isPending ? t('Signing in…') : t('Login')}
 						</Button>
 						<SocialLoginProvider />
 						<p className="text-center text-sm text-muted-foreground">

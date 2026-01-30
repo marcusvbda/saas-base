@@ -3,6 +3,9 @@ const common = {
 	Password: 'Senha',
 	Name: 'Nome',
 	Loading: 'Carregando',
+	'Loading…': 'Carregando…',
+	'Updating…': 'Atualizando…',
+	'Error processing message': 'Erro ao processar mensagem',
 	'Invalid email': 'Email inválido',
 	'Password must be at least 6 characters':
 		'A senha deve ter pelo menos 6 caracteres',

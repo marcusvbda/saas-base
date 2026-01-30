@@ -17,7 +17,7 @@ import { LocaleLink } from '@/components/locale';
 import { useLocale } from '@/hooks/use-locale';
 import { SocialLoginProvider } from '@/components/social-login-provider';
 import { Button } from '@/components/ui/button';
-import { useSystem } from '@/providers/system.provider';
+import { useMutation } from '@tanstack/react-query';
 
 export default function RegisterPage() {
 	const { t } = useLocale();
@@ -43,42 +43,53 @@ export default function RegisterPage() {
 	});
 
 	const { router } = useLocale();
-	const { startTransition } = useSystem();
+
+	const signUpMutation = useMutation({
+		mutationFn: async ({
+			email,
+			password,
+			name,
+		}: {
+			email: string;
+			password: string;
+			name: string;
+		}) => {
+			const result = await signUp.email({
+				email,
+				password,
+				name,
+			});
+			if (result.error) throw new Error(result.error.message);
+			return result;
+		},
+		onSuccess: () => {
+			toast.success(t('Check your email for verification'));
+			router.push('/sign-in');
+		},
+		onError: (error: Error) => {
+			setForm((prev: any) => ({
+				...prev,
+				errors: { name: error.message },
+			}));
+		},
+	});
 
 	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
 		try {
 			const validatedFields: any = await getValidatedParams(form, formSchema);
 			if (!validatedFields.success) {
-				return setForm({
-					...form,
+				setForm((prev: any) => ({
+					...prev,
 					errors: validatedFields.data,
-				});
+				}));
+				return;
 			}
-
-			startTransition(async () => {
-				setForm({
-					...form,
-					errors: null,
-				});
-
-				const result = await signUp.email({
-					email: validatedFields.data.email,
-					password: validatedFields.data.password,
-					name: validatedFields.data.name,
-				});
-
-				if (result.error) {
-					return setForm({
-						...form,
-						errors: {
-							name: result.error.message,
-						},
-					});
-				} else {
-					toast.success(t('Check your email for verification'));
-					router.push('/sign-in');
-				}
+			setForm((prev: any) => ({ ...prev, errors: null }));
+			signUpMutation.mutate({
+				email: validatedFields.data.email,
+				password: validatedFields.data.password,
+				name: validatedFields.data.name,
 			});
 		} catch (error: any) {
 			toast.error(error.message as string);
@@ -227,8 +238,12 @@ export default function RegisterPage() {
 								</FieldError>
 							</FieldContent>
 						</Field>
-						<Button type="submit" className="w-full">
-							{t('Register')}
+						<Button
+							type="submit"
+							className="w-full"
+							disabled={signUpMutation.isPending}
+						>
+							{signUpMutation.isPending ? t('Loading…') : t('Register')}
 						</Button>
 						<SocialLoginProvider />
 						<p className="text-center text-sm text-muted-foreground">

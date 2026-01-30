@@ -60,11 +60,24 @@ export default class PaymentsService {
 	}) {
 		const {
 			metadata,
-			currency,
+			currency: requestedCurrency,
 			locale = 'auto',
 			customerId,
 			customerEmail,
 		} = params;
+
+		// Stripe does not allow mixing currencies on a single customer.
+		// If this customer already has a subscription (or invoice), use its currency.
+		let currency = requestedCurrency;
+		if (customerId) {
+			const existingCurrency =
+				await this.gateway.getCustomerCurrency(customerId);
+			if (existingCurrency) {
+				currency =
+					existingCurrency === 'brl' ? 'BRL' : 'USD';
+			}
+		}
+
 		const items = await this.prepareItems(metadata, currency);
 		const checkoutSession = await this.gateway.createSessionCheckout({
 			mode: 'subscription',

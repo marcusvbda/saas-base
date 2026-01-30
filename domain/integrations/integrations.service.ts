@@ -1,7 +1,9 @@
+import { pusher } from '@/lib/pusher';
 import IntegrationsRepository, {
 	RepositoryIntegration,
 	RepositoryIntegrationInput,
 } from './integrations.repository';
+import { publishJson } from '@/lib/qstash';
 
 export default class IntegrationsService {
 	constructor(
@@ -18,11 +20,7 @@ export default class IntegrationsService {
 		userId: string,
 		data: RepositoryIntegrationInput,
 	): Promise<void> {
-		// Por padrão começamos como "pending" até validar o token
-		await this.repository.create(userId, {
-			...data,
-			status: data.status ?? 'pending',
-		});
+		await this.repository.create(userId, data);
 	}
 
 	async updateIntegration(
@@ -35,6 +33,12 @@ export default class IntegrationsService {
 			throw new Error('Integration not found');
 		}
 		await this.repository.update(id, userId, data);
+
+		await publishJson({
+			service: 'IntegrationsService',
+			action: 'validateTokenStatus',
+			payload: { id, token: data.token },
+		});
 	}
 
 	async deleteIntegration(userId: string, id: number): Promise<void> {
@@ -45,7 +49,30 @@ export default class IntegrationsService {
 		await this.repository.delete(id, userId);
 	}
 
-	async validateTokenStatus(payload: { id: string | number; token: string }) {
-		console.log('validateTokenStatus', payload);
+	async validateTokenStatus(payload: {
+		id: string | number;
+		token: string;
+		userId: string;
+	}) {
+		const integration = await this.repository.findById(payload.id as string);
+		if (integration) {
+			this.repository.update(
+				integration.id as number,
+				integration.user_id as string,
+				{
+					status: 'connected',
+				},
+			);
+
+			//"on-integration-status-update"
+			pusher.trigger(
+				`integration-${integration.id}`,
+				'on-integration-status-update',
+				{
+					...integration,
+					status: 'connected',
+				},
+			);
+		}
 	}
 }

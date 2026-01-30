@@ -13,9 +13,14 @@ import { Button } from './ui/button';
 interface PlanSelectorProps {
 	value: string;
 	onChange: (value: string) => void;
+	loading: boolean;
 }
 
-export default function PlanSelector({ value, onChange }: PlanSelectorProps) {
+export default function PlanSelector({
+	value,
+	onChange,
+	loading,
+}: PlanSelectorProps) {
 	const { t, locale } = useLocale();
 
 	return (
@@ -75,6 +80,7 @@ export default function PlanSelector({ value, onChange }: PlanSelectorProps) {
 								type="button"
 								variant={isSelected ? 'default' : 'outline'}
 								className="w-full mt-auto"
+								disabled={loading}
 								onClick={(e) => {
 									if (isSelected) return;
 									e.preventDefault();

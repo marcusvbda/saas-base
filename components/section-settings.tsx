@@ -23,7 +23,7 @@ import {
 	SelectValue,
 	SelectItem,
 } from '@/components/ui/select';
-import { useSystem } from '@/providers/system.provider';
+import { useMutation } from '@tanstack/react-query';
 import { Button } from './ui/button';
 
 export default function SectionSettings({
@@ -37,51 +37,63 @@ export default function SectionSettings({
 	fields = null,
 }: ISettingsSection) {
 	const { t } = useLocale();
-	const { isPending, startTransition } = useSystem();
 	const [form, setForm] = useState<any>({
 		...initialData,
 		errors: null,
+	});
+
+	const updateMutation = useMutation({
+		mutationFn: async ({
+			path,
+			method: m,
+			payload,
+		}: {
+			path: string;
+			method: string;
+			payload: Record<string, unknown>;
+		}) => {
+			const response = await fetch(path, {
+				method: m,
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload),
+			});
+			const result = await response.json();
+			if (!response.ok || result.error) {
+				throw new Error(result.error?.message ?? 'Request failed');
+			}
+			return { data: payload, result };
+		},
+		onSuccess: (_, variables) => {
+			toast.success(t('{resource} updated successfully', { resource }));
+			setForm((prev: any) => ({ ...prev, errors: null }));
+			onSuccess?.({ data: variables.payload, form, setForm });
+		},
+		onError: (error: Error) => {
+			setForm((prev: any) => ({
+				...prev,
+				errors: { name: error.message },
+			}));
+		},
 	});
 
 	const validateForm = async () => {
 		return getValidatedParams(form, validator && validator(form));
 	};
 
-	const handleSubmit = (e: FormEvent) => {
+	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
-		startTransition(async () => {
-			const validatedFields: any = await validateForm();
-			if (!validatedFields.success) {
-				return setForm({
-					...form,
-					errors: validatedFields.data,
-				});
-			}
-
-			const payload = {
-				...validatedFields.data,
-			};
-
-			const response = await fetch(apiPath, {
-				method,
-				body: JSON.stringify(payload),
-			});
-
-			const result = await response.json();
-
-			if (!response.ok || result.error) {
-				return setForm({
-					...form,
-					errors: { name: result.error?.message },
-				});
-			}
-
-			toast.success(t('{resource} updated successfully', { resource }));
-
-			setForm({ ...form, errors: null });
-
-			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-			onSuccess && onSuccess({ data: validatedFields.data, form, setForm });
+		const validatedFields: any = await validateForm();
+		if (!validatedFields.success) {
+			setForm((prev: any) => ({
+				...prev,
+				errors: validatedFields.data,
+			}));
+			return;
+		}
+		updateMutation.mutate({
+			path: apiPath,
+			method,
+			payload: validatedFields.data,
 		});
 	};
 
@@ -169,8 +181,10 @@ export default function SectionSettings({
 			</FieldGroup>
 
 			<div className="flex justify-end">
-				<Button disabled={isPending} type="submit">
-					{t('Update {resource}', { resource })}
+				<Button disabled={updateMutation.isPending} type="submit">
+					{updateMutation.isPending
+						? t('Updating…')
+						: t('Update {resource}', { resource })}
 				</Button>
 			</div>
 		</form>
