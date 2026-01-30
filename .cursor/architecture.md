@@ -1,52 +1,54 @@
-Architecture Overview
+## Architecture Overview
 
 This project follows a strict layered architecture designed for clarity,
 testability, performance, and long-term evolution.
 
-Layered flow:
+## Layered flow:
+
 UI -> API Routes -> Domain Services -> Repositories -> Database
 
 Each layer has a single responsibility and strict dependency rules.
 Violating these boundaries is considered a bug.
 
-Layer responsibilities:
+## Layer responsibilities:
 
-UI:
+## UI:
 
 - Presentation and interaction only
 - No business rules
 - Consumes data exclusively via API Routes
 
-API Routes:
+## API Routes:
 
 - HTTP boundary of the system
 - Input validation and auth
 - Delegation to domain services only
 
-Domain Services:
+## Domain Services:
 
 - Core business rules and invariants
 - Stateless and framework-agnostic
 - Orchestrate repositories
 
-Repositories:
+## Repositories:
 
 - Raw SQL data access only
 - Hide persistence details from domain
 
-Dependency rules:
+## Dependency rules:
 
 - Dependencies flow downward only
 - No layer may skip another
 
-Anti-patterns:
+## Anti-patterns:
 
 - Business logic in API Routes
 - SQL outside repositories
 - Shared mutable state
 - Framework coupling in domain
 
-Rule of thumb:
+## Rule of thumb:
+
 If it decides what happens → Domain
 If it decides how data is stored → Repository
 If it decides HTTP behavior → API Route
