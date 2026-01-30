@@ -341,11 +341,13 @@ export const IntegrationCard = ({
 		<SocketClient
 			eventName="on-integration-status-update"
 			channelName={`integration-${integration.id}`}
-			initialData={integration}
+			initialData={{
+				status: integration.status,
+			}}
 			render={(data: any) => {
 				return (
 					<Card
-						key={data.id}
+						key={integration.id}
 						className="cursor-pointer transition hover:border-primary/40 hover:shadow-sm"
 						onClick={onClick}
 					>
@@ -356,10 +358,10 @@ export const IntegrationCard = ({
 								</div>
 								<div>
 									<CardTitle className="text-sm">
-										{data?.provider === 'gitlab' && 'GitLab workspace'}
+										{integration?.provider === 'gitlab' && 'GitLab workspace'}
 									</CardTitle>
 									<CardDescription className="text-xs">
-										{['gitlab'].includes(data?.provider)
+										{['gitlab'].includes(integration?.provider)
 											? t('Personal access token')
 											: t('Personal access token')}
 									</CardDescription>

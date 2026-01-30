@@ -37,7 +37,7 @@ export default class IntegrationsService {
 		await publishJson({
 			service: 'IntegrationsService',
 			action: 'validateTokenStatus',
-			payload: { id, token: data.token },
+			payload: { id },
 		});
 	}
 
@@ -49,11 +49,7 @@ export default class IntegrationsService {
 		await this.repository.delete(id, userId);
 	}
 
-	async validateTokenStatus(payload: {
-		id: string | number;
-		token: string;
-		userId: string;
-	}) {
+	async validateTokenStatus(payload: { id: string | number }) {
 		const integration = await this.repository.findById(payload.id as string);
 		if (integration) {
 			this.repository.update(
@@ -64,12 +60,10 @@ export default class IntegrationsService {
 				},
 			);
 
-			//"on-integration-status-update"
 			pusher.trigger(
 				`integration-${integration.id}`,
 				'on-integration-status-update',
 				{
-					...integration,
 					status: 'connected',
 				},
 			);
