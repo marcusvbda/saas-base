@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireServerAuth } from '@/lib/better-auth/server';
 import IntegrationsService from '@/domain/integrations/integrations.service';
+import { domainErrorToNextResponse } from '@/lib/domain-error-to-http';
+import { publishJson } from '@/lib/qstash';
 import { z } from 'zod';
 
 const bodySchema = z.object({
@@ -28,14 +30,19 @@ export async function POST(request: NextRequest) {
 				);
 			}
 			const service = new IntegrationsService();
-			await service.createIntegration(session.user.id, parsed.data);
+			const { id } = await service.createIntegration(
+				session.user.id,
+				parsed.data,
+			);
+			await publishJson({
+				service: 'IntegrationsService',
+				action: 'validateTokenStatus',
+				payload: { id },
+			});
 
 			return NextResponse.json({ data: { success: true } }, { status: 201 });
-		} catch (error: any) {
-			return NextResponse.json(
-				{ error: { message: error.message || 'Failed to create integration' } },
-				{ status: 400 },
-			);
+		} catch (error) {
+			return domainErrorToNextResponse(error);
 		}
 	});
 }
@@ -75,13 +82,15 @@ export async function PUT(request: NextRequest) {
 				token,
 				status: 'pending',
 			});
+			await publishJson({
+				service: 'IntegrationsService',
+				action: 'validateTokenStatus',
+				payload: { id },
+			});
 
 			return NextResponse.json({ data: { success: true } });
-		} catch (error: any) {
-			return NextResponse.json(
-				{ error: { message: error.message || 'Failed to update integration' } },
-				{ status: 400 },
-			);
+		} catch (error) {
+			return domainErrorToNextResponse(error);
 		}
 	});
 }
@@ -102,11 +111,8 @@ export async function DELETE(request: NextRequest) {
 			await service.deleteIntegration(session.user.id, id);
 
 			return NextResponse.json({ data: { success: true } });
-		} catch (error: any) {
-			return NextResponse.json(
-				{ error: { message: error.message || 'Failed to delete integration' } },
-				{ status: 400 },
-			);
+		} catch (error) {
+			return domainErrorToNextResponse(error);
 		}
 	});
 }

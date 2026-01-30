@@ -15,6 +15,7 @@ const updatePassword = {
 	'Never share your password with anyone and change it regularly':
 		'Nunca compartilhe sua senha com ninguém e altere-a regularmente',
 	'Password updated successfully': 'Senha atualizada com sucesso',
+	'Failed to reset password': 'Falha ao redefinir a senha',
 };
 
 export default updatePassword;

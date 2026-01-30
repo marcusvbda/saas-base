@@ -1,10 +1,14 @@
-import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
+import { BusinessRuleError, ValidationError } from '@/domain/errors';
 import StripeGateway from './gateways/stripe';
 import PaymentsRepository from './payments.repository';
 import WebhooksRepository from './webhooks.repository';
 import UserService from '../users/users.service';
 import { DEFAULT_PLAN, PLANS } from '@/constants/plans';
+
+export type ProcessCheckoutResult = {
+	redirectPath: string;
+};
 
 const WEBHOOK_EVENTS = [
 	'checkout.session.completed',
@@ -34,12 +38,12 @@ export default class PaymentsService {
 	): Promise<{ price: string; quantity: number }[]> {
 		const { resource_type, resource_id } = metadata;
 		if (resource_type !== 'plan_subscription') {
-			throw new Error(`Unknown resource_type: ${resource_type}`);
+			throw new ValidationError(`Unknown resource_type: ${resource_type}`);
 		}
 		const planName = resource_id.split('|')[1];
 		const planConfig = PLANS.find((p) => p.id === planName);
 		if (!planConfig) {
-			throw new Error(`Unknown plan: ${planName}`);
+			throw new BusinessRuleError(`Unknown plan: ${planName}`);
 		}
 		const amount = planConfig.price[currency];
 		const priceId = await this.gateway.getOrCreatePrice(
@@ -57,14 +61,24 @@ export default class PaymentsService {
 		locale?: 'pt' | 'en' | 'auto';
 		customerId?: string | null;
 		customerEmail?: string | null;
+		customerMetadata?: Record<string, string>;
 	}) {
 		const {
 			metadata,
 			currency: requestedCurrency,
 			locale = 'auto',
-			customerId,
+			customerId: providedCustomerId,
 			customerEmail,
+			customerMetadata,
 		} = params;
+
+		let customerId = providedCustomerId ?? null;
+		if (customerEmail && !customerId) {
+			customerId = await this.gateway.findOrCreateCustomer(
+				customerEmail,
+				customerMetadata ?? {},
+			);
+		}
 
 		// Stripe does not allow mixing currencies on a single customer.
 		// If this customer already has a subscription (or invoice), use its currency.
@@ -133,11 +147,13 @@ export default class PaymentsService {
 		_requestCurrency: 'BRL' | 'USD',
 	): Promise<void> {
 		if (newPlan === DEFAULT_PLAN) {
-			throw new Error('Use cancel subscription to switch to free');
+			throw new BusinessRuleError(
+				'Use cancel subscription to switch to free',
+			);
 		}
 		const subscription = await this.userService.getSubscriptionByUserId(userId);
 		if (!subscription) {
-			throw new Error('No active subscription to change');
+			throw new BusinessRuleError('No active subscription to change');
 		}
 		const status = (subscription as { status?: string }).status ?? 'active';
 		const periodEnd = (subscription as { current_period_end?: Date | null })
@@ -150,7 +166,9 @@ export default class PaymentsService {
 				periodEnd != null &&
 				new Date(periodEnd) > new Date());
 		if (!hasAccess) {
-			throw new Error('Subscription is not active; renew to change plan');
+			throw new BusinessRuleError(
+				'Subscription is not active; renew to change plan',
+			);
 		}
 		if ((subscription as { plan?: string }).plan === newPlan) {
 			return;
@@ -167,7 +185,7 @@ export default class PaymentsService {
 
 		const planConfig = PLANS.find((p) => p.id === newPlan);
 		if (!planConfig) {
-			throw new Error(`Unknown plan: ${newPlan}`);
+			throw new BusinessRuleError(`Unknown plan: ${newPlan}`);
 		}
 		const amount = planConfig.price[currency];
 		const priceId = await this.gateway.getOrCreatePrice(
@@ -198,7 +216,14 @@ export default class PaymentsService {
 		});
 	}
 
-	async processResultSessionCheckout(stripeSession: any, session: any) {
+	async processResultSessionCheckout(
+		stripeSession: {
+			payment_status?: string;
+			subscription?: string | { id: string } | null;
+			customer?: string | { id: string } | null;
+		},
+		session: { resource_type: string; resource_id: string },
+	): Promise<ProcessCheckoutResult> {
 		const status: string = String(stripeSession.payment_status ?? '');
 		const resourceType = session.resource_type;
 		const resourceId = session.resource_id;
@@ -207,29 +232,23 @@ export default class PaymentsService {
 			typeof subRef === 'string'
 				? subRef
 				: (subRef && typeof subRef === 'object' && 'id' in subRef
-						? (subRef as { id: string }).id
+						? subRef.id
 						: null);
 		const customerId =
 			typeof stripeSession.customer === 'string'
 				? stripeSession.customer
-				: (stripeSession.customer?.id ?? null);
+				: (stripeSession.customer as { id?: string } | undefined)?.id ?? null;
 
 		if (!ALLOWED_RESOURCE_TYPES.includes(resourceType)) {
-			return NextResponse.json(
-				{ error: 'Unsupported resource type' },
-				{ status: 400 },
-			);
+			throw new ValidationError('Unsupported resource type');
 		}
 
 		if (status !== 'paid') {
-			return NextResponse.json({ error: 'Payment not paid' }, { status: 400 });
+			throw new BusinessRuleError('Payment not paid');
 		}
 
 		if (!subscriptionId) {
-			return NextResponse.json(
-				{ error: 'No subscription in session' },
-				{ status: 400 },
-			);
+			throw new ValidationError('No subscription in session');
 		}
 
 		const extra: {
@@ -257,11 +276,8 @@ export default class PaymentsService {
 			type: 'success',
 			message: 'Plan updated successfully',
 		});
-		const baseUrl = process.env.NEXT_PUBLIC_APP_URL!.replace(/\/$/, '');
-		const redirectUrl = new URL(`${baseUrl}/settings`);
-		redirectUrl.searchParams.set('message', encodeURIComponent(message));
-		redirectUrl.searchParams.set('section', 'plan');
-		return NextResponse.redirect(redirectUrl.toString());
+		const redirectPath = `/settings?message=${encodeURIComponent(message)}&section=plan`;
+		return { redirectPath };
 	}
 
 	async processResultInvoice(
@@ -275,7 +291,7 @@ export default class PaymentsService {
 	) {
 		const [userId, planName] = resourceId.split('|');
 		if (!userId || !planName) {
-			throw new Error('Invalid resource_id');
+			throw new ValidationError('Invalid resource_id');
 		}
 		
 		// Build update data, preserving null values (don't convert to undefined)

@@ -14,7 +14,11 @@ import { Input } from '@/components/ui/input';
 import { useLocale } from '@/hooks/use-locale';
 import { getValidatedParams } from '@/helpers/common';
 import { toast } from 'sonner';
-import { ISettingsSection, ISettingsField } from '@/types/settings';
+import {
+	ISettingsSection,
+	ISettingsField,
+	type SettingsSuccessPayload,
+} from '@/types/settings';
 import { InputPassword } from './ui/input-password';
 import {
 	Select,
@@ -37,7 +41,7 @@ export default function SectionSettings({
 	fields = null,
 }: ISettingsSection) {
 	const { t } = useLocale();
-	const [form, setForm] = useState<any>({
+	const [form, setForm] = useState<Record<string, unknown>>({
 		...initialData,
 		errors: null,
 	});
@@ -65,24 +69,30 @@ export default function SectionSettings({
 		},
 		onSuccess: (_, variables) => {
 			toast.success(t('{resource} updated successfully', { resource }));
-			setForm((prev: any) => ({ ...prev, errors: null }));
-			onSuccess?.({ data: variables.payload, form, setForm });
+			setForm((prev) => ({ ...prev, errors: null } as Record<string, unknown>));
+			onSuccess?.({
+				data: variables.payload as SettingsSuccessPayload,
+				form,
+				setForm,
+			});
 		},
 		onError: (error: Error) => {
-			setForm((prev: any) => ({
+			setForm((prev) => ({
 				...prev,
-				errors: { name: error.message },
+				errors: { name: t(error.message) },
 			}));
 		},
 	});
 
 	const validateForm = async () => {
-		return getValidatedParams(form, validator && validator(form));
+		const schema = validator?.(form);
+		if (!schema) return { success: true, data: form };
+		return getValidatedParams(form, schema);
 	};
 
 	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
-		const validatedFields: any = await validateForm();
+		const validatedFields = await validateForm();
 		if (!validatedFields.success) {
 			setForm((prev: any) => ({
 				...prev,
@@ -114,7 +124,7 @@ export default function SectionSettings({
 									className="w-full"
 									type={field.type}
 									placeholder={field?.placeholder}
-									value={form[field.name]}
+									value={String(form[field.name] ?? '')}
 									onChange={(e) =>
 										setForm({ ...form, [field.name]: e.target.value })
 									}
@@ -124,7 +134,7 @@ export default function SectionSettings({
 							{['password'].includes(field?.type || '') && (
 								<InputPassword
 									className="w-full"
-									value={form[field.name]}
+									value={String(form[field.name] ?? '')}
 									onChange={(e) =>
 										setForm({ ...form, [field.name]: e.target.value })
 									}
@@ -132,7 +142,7 @@ export default function SectionSettings({
 							)}
 							{['select'].includes(field?.type || '') && (
 								<Select
-									value={form[field.name]}
+									value={String(form[field.name] ?? '')}
 									onValueChange={(value) =>
 										setForm({ ...form, [field.name]: value })
 									}
@@ -158,7 +168,7 @@ export default function SectionSettings({
 									const CustomComponent = field.component;
 									return (
 										<CustomComponent
-											value={form[field.name] ?? ''}
+											value={String(form[field.name] ?? '')}
 											onChange={(value) =>
 												setForm({ ...form, [field.name]: value })
 											}

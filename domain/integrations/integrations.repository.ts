@@ -1,5 +1,4 @@
 import Repository from '@/database/repository';
-import { publishJson } from '@/lib/qstash';
 
 export type RepositoryIntegrationStatus =
 	| 'pending'
@@ -23,9 +22,12 @@ export type RepositoryIntegrationInput = {
 };
 
 export default class IntegrationsRepository extends Repository {
+	private readonly columns =
+		'`id`, `user_id`, `provider`, `token`, `status`, `created_at`, `updated_at`';
+
 	async findById(id: string) {
 		return await this.findOne(
-			'SELECT * FROM `repository_integrations` WHERE `id` = :id',
+			`SELECT ${this.columns} FROM \`repository_integrations\` WHERE \`id\` = :id`,
 			{ id },
 		);
 	}
@@ -33,21 +35,24 @@ export default class IntegrationsRepository extends Repository {
 	async findAllByUserId(userId: string) {
 		return await this.db
 			.execute(
-				'SELECT * FROM `repository_integrations` WHERE `user_id` = :userId ORDER BY `created_at` DESC',
+				`SELECT ${this.columns} FROM \`repository_integrations\` WHERE \`user_id\` = :userId ORDER BY \`created_at\` DESC`,
 				{ userId },
 			)
-			.then(([rows]: any) => rows as RepositoryIntegration[]);
+			.then(([rows]: unknown[]) => rows as RepositoryIntegration[]);
 	}
 
 	async findByIdForUser(userId: string, id: number) {
 		return await this.findOne(
-			'SELECT * FROM `repository_integrations` WHERE `user_id` = :userId AND `id` = :id',
+			`SELECT ${this.columns} FROM \`repository_integrations\` WHERE \`user_id\` = :userId AND \`id\` = :id`,
 			{ userId, id },
 		);
 	}
 
-	async create(userId: string, data: RepositoryIntegrationInput) {
-		const result = await this.execute(
+	async create(
+		userId: string,
+		data: RepositoryIntegrationInput,
+	): Promise<number> {
+		const result = (await this.execute(
 			`INSERT INTO \`repository_integrations\` (\`user_id\`, \`provider\`, \`token\`, \`status\`)
        VALUES (:userId, :provider, :token, :status)`,
 			{
@@ -56,13 +61,8 @@ export default class IntegrationsRepository extends Repository {
 				token: data.token,
 				status: 'pending',
 			},
-		);
-
-		await publishJson({
-			service: 'IntegrationsService',
-			action: 'validateTokenStatus',
-			payload: { id: result.insertId },
-		});
+		)) as { insertId?: number };
+		return result.insertId ?? 0;
 	}
 
 	async update(

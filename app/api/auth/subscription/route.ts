@@ -1,5 +1,6 @@
 import UserService from '@/domain/users/users.service';
 import { requireServerAuth } from '@/lib/better-auth/server';
+import { domainErrorToNextResponse } from '@/lib/domain-error-to-http';
 import { NextResponse } from 'next/server';
 import PaymentsService from '@/domain/payments/payments.service';
 
@@ -57,9 +58,8 @@ export async function PATCH(request: Request) {
 				{ message: 'Plan updated successfully', plan },
 				{ status: 200 },
 			);
-		} catch (e) {
-			const message = (e as Error).message;
-			return NextResponse.json({ error: message }, { status: 400 });
+		} catch (error) {
+			return domainErrorToNextResponse(error);
 		}
 	});
 }

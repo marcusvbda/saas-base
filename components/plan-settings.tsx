@@ -85,7 +85,7 @@ export default function PlanSettings() {
 			}));
 		},
 		onError: (error: Error) => {
-			toast.error(error.message);
+			toast.error(t(error.message));
 		},
 	});
 
@@ -98,7 +98,7 @@ export default function PlanSettings() {
 			});
 			const data = await response.json();
 			if (!response.ok) {
-				throw new Error(data?.error ?? t('Failed to reactivate subscription'));
+				throw new Error(data?.error ?? 'Failed to reactivate subscription');
 			}
 			return data;
 		},
@@ -114,7 +114,7 @@ export default function PlanSettings() {
 			}));
 		},
 		onError: (error: Error) => {
-			toast.error(error.message);
+			toast.error(t(error.message));
 		},
 	});
 
@@ -133,7 +133,7 @@ export default function PlanSettings() {
 			});
 			const data = await response.json();
 			if (!response.ok) {
-				throw new Error(data?.error ?? t('Failed to update plan'));
+				throw new Error(data?.error ?? 'Failed to update plan');
 			}
 			return data;
 		},
@@ -146,7 +146,7 @@ export default function PlanSettings() {
 			}));
 		},
 		onError: (error: Error) => {
-			toast.error(error.message);
+			toast.error(t(error.message));
 		},
 	});
 
@@ -172,7 +172,7 @@ export default function PlanSettings() {
 			});
 			if (!response.ok) {
 				const err = await response.json().catch(() => ({}));
-				throw new Error(err?.error ?? t('Failed to create checkout session'));
+				throw new Error(err?.error ?? 'Failed to create checkout session');
 			}
 			return response.json();
 		},
@@ -184,7 +184,7 @@ export default function PlanSettings() {
 			}
 		},
 		onError: (error: Error) => {
-			toast.error(error.message);
+			toast.error(t(error.message));
 		},
 	});
 

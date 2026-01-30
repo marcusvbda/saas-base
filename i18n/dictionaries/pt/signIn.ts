@@ -1,5 +1,6 @@
 const signIn = {
 	Login: 'Entrar',
+	'Email not verified': 'E-mail não verificado',
 	'Signing in…': 'Entrando…',
 	'Enter your credentials to access your account':
 		'Digite suas credenciais para acessar sua conta',

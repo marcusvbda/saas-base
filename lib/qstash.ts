@@ -8,7 +8,7 @@ const qstash = new Client({
 export interface IBody {
 	service: string;
 	action: string;
-	payload: any;
+	payload: unknown;
 }
 
 export const publishJson = async (body: IBody) => {
@@ -19,6 +19,5 @@ export const publishJson = async (body: IBody) => {
 		});
 		return;
 	}
-
 	return await executeServiceAction(body.service, body.action, body.payload);
 };

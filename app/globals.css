@@ -49,6 +49,12 @@
 
 	--radius: 0.625rem;
 
+	/* Social provider brand colors (design tokens) */
+	--social-google-blue: #4285f4;
+	--social-google-green: #34a853;
+	--social-google-yellow: #fbbc05;
+	--social-google-red: #ea4335;
+
 	--shadow-2xs: 0 1px 3px 0px oklch(0 0 0 / 0.05);
 	--shadow-xs: 0 1px 3px 0px oklch(0 0 0 / 0.05);
 	--shadow-sm:
@@ -95,6 +101,11 @@
 	--sidebar-accent-foreground: oklch(0.99 0 0);
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.56 0 0);
+
+	--social-google-blue: #4285f4;
+	--social-google-green: #34a853;
+	--social-google-yellow: #fbbc05;
+	--social-google-red: #ea4335;
 
 	--shadow-2xs: 0 1px 3px 0px oklch(0 0 0 / 0.05);
 	--shadow-xs: 0 1px 3px 0px oklch(0 0 0 / 0.05);

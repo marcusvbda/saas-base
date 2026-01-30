@@ -42,7 +42,7 @@ export default function ForgotPasswordPage() {
 		onError: (error: Error) => {
 			setForm((prev: any) => ({
 				...prev,
-				errors: { email: error.message },
+				errors: { email: t(error.message) },
 			}));
 		},
 	});
@@ -61,7 +61,7 @@ export default function ForgotPasswordPage() {
 			setForm((prev: any) => ({ ...prev, errors: null }));
 			forgotPasswordMutation.mutate(validatedFields.data.email);
 		} catch (error: any) {
-			toast.error(error.message as string);
+			toast.error(t((error?.message as string) || 'Something went wrong'));
 		}
 	};
 

@@ -10,24 +10,22 @@ type SettingsData = {
 	card_cvv?: string | null;
 };
 
+/** Columns that exist in user_settings table (migration 1_user_settings.sql). */
+const USER_SETTINGS_COLUMNS = '`id`, `user_id`, `timezone`';
+
+/** Fields allowed for insert/update; only timezone exists in current schema. */
+const ALLOWED_FIELDS = ['timezone'] as const;
+
 export default class SettingsRepository extends Repository {
 	async findSettingsByUserId(userId: string) {
 		return await this.findOne(
-			'SELECT * FROM `user_settings` WHERE `user_id` = :userId',
+			`SELECT ${USER_SETTINGS_COLUMNS} FROM \`user_settings\` WHERE \`user_id\` = :userId`,
 			{ userId },
 		);
 	}
 
 	async createSettings(userId: string, data: SettingsData) {
-		const allowedFields = [
-			'timezone',
-			'plan',
-			'card_number',
-			'card_holder_name',
-			'card_expiry_month',
-			'card_expiry_year',
-			'card_cvv',
-		] as const;
+		const allowedFields = ALLOWED_FIELDS;
 
 		const fields: string[] = ['user_id'];
 		const values: string[] = [':userId'];
@@ -48,15 +46,7 @@ export default class SettingsRepository extends Repository {
 	}
 
 	async updateSettings(id: number, data: SettingsData) {
-		const allowedFields = [
-			'timezone',
-			'plan',
-			'card_number',
-			'card_holder_name',
-			'card_expiry_month',
-			'card_expiry_year',
-			'card_cvv',
-		] as const;
+		const allowedFields = ALLOWED_FIELDS;
 
 		const updates: string[] = [];
 		const params: Record<string, any> = { id };

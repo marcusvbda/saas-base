@@ -1,4 +1,5 @@
 import PaymentsService from '@/domain/payments/payments.service';
+import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
 
 function redirectToSettings(
@@ -23,6 +24,18 @@ function redirectToSettings(
 }
 
 export async function GET(request: NextRequest) {
+	const { allowed, retryAfter } = checkRateLimit(
+		getClientIdentifier(request),
+		'api:checkout:callback',
+	);
+	if (!allowed) {
+		const res = NextResponse.json(
+			{ error: { message: 'Too many requests' } },
+			{ status: 429 },
+		);
+		if (retryAfter != null) res.headers.set('Retry-After', String(retryAfter));
+		return res;
+	}
 	try {
 		const sessionId = request.nextUrl.searchParams.get('session_id');
 		if (!sessionId) {
@@ -59,12 +72,18 @@ export async function GET(request: NextRequest) {
 		}
 
 		await paymentsService.updateCheckoutSessionStatus(sessionId, 'paid');
-		return paymentsService.processResultSessionCheckout(
+		const result = await paymentsService.processResultSessionCheckout(
 			stripeSession,
 			session,
 		);
+		const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(
+			/\/$/,
+			'',
+		);
+		return NextResponse.redirect(`${baseUrl}${result.redirectPath}`);
 	} catch (err) {
-		const msg = err instanceof Error ? err.message : 'Unknown error';
+		const msg =
+			err instanceof Error ? err.message : 'Something went wrong';
 		return redirectToSettings(false, msg);
 	}
 }

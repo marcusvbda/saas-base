@@ -1,16 +1,14 @@
 import { pusher } from '@/lib/pusher';
+import { NotFoundError } from '@/domain/errors';
 import IntegrationsRepository, {
 	RepositoryIntegration,
 	RepositoryIntegrationInput,
 } from './integrations.repository';
-import { publishJson } from '@/lib/qstash';
 
 export default class IntegrationsService {
 	constructor(
 		private repository: IntegrationsRepository = new IntegrationsRepository(),
-	) {
-		//
-	}
+	) {}
 
 	async listUserIntegrations(userId: string): Promise<RepositoryIntegration[]> {
 		return this.repository.findAllByUserId(userId);
@@ -19,8 +17,9 @@ export default class IntegrationsService {
 	async createIntegration(
 		userId: string,
 		data: RepositoryIntegrationInput,
-	): Promise<void> {
-		await this.repository.create(userId, data);
+	): Promise<{ id: number }> {
+		const id = await this.repository.create(userId, data);
+		return { id };
 	}
 
 	async updateIntegration(
@@ -30,43 +29,52 @@ export default class IntegrationsService {
 	): Promise<void> {
 		const existing = await this.repository.findByIdForUser(userId, id);
 		if (!existing) {
-			throw new Error('Integration not found');
+			throw new NotFoundError('Integration not found');
 		}
 		await this.repository.update(id, userId, data);
-
-		await publishJson({
-			service: 'IntegrationsService',
-			action: 'validateTokenStatus',
-			payload: { id },
-		});
 	}
 
 	async deleteIntegration(userId: string, id: number): Promise<void> {
 		const existing = await this.repository.findByIdForUser(userId, id);
 		if (!existing) {
-			throw new Error('Integration not found');
+			throw new NotFoundError('Integration not found');
 		}
 		await this.repository.delete(id, userId);
 	}
 
-	async validateTokenStatus(payload: { id: string | number }) {
+	async validateTokenStatus(payload: { id: string | number }): Promise<void> {
 		const integration = await this.repository.findById(payload.id as string);
-		if (integration) {
-			this.repository.update(
-				integration.id as number,
-				integration.user_id as string,
-				{
-					status: 'connected',
-				},
-			);
+		if (!integration) return;
 
-			pusher.trigger(
-				`integration-${integration.id}`,
-				'on-integration-status-update',
-				{
-					status: 'connected',
-				},
-			);
+		let status: 'connected' | 'disconnected' = 'disconnected';
+
+		if (integration.provider === 'gitlab') {
+			const isValid = await this.validateGitLabToken(integration.token);
+			status = isValid ? 'connected' : 'disconnected';
+		}
+
+		await this.repository.update(
+			integration.id as number,
+			integration.user_id as string,
+			{ status },
+		);
+
+		pusher.trigger(
+			`integration-${integration.id}`,
+			'on-integration-status-update',
+			{ status },
+		);
+	}
+
+	private async validateGitLabToken(token: string): Promise<boolean> {
+		const baseUrl = process.env.GITLAB_API_URL || 'https://gitlab.com';
+		try {
+			const res = await fetch(`${baseUrl}/api/v4/user`, {
+				headers: { 'PRIVATE-TOKEN': token },
+			});
+			return res.ok;
+		} catch {
+			return false;
 		}
 	}
 }

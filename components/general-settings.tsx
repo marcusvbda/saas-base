@@ -54,14 +54,16 @@ export default function GeneralSettings() {
 					})),
 				},
 			]}
-			onSuccess={({ data }: any) => {
-				setSession({
-					...session,
-					user: {
-						...session?.user,
-						timezone: data.timezone,
-					},
-				});
+			onSuccess={({ data }: { data: { timezone?: string } }) => {
+				if (session && typeof data.timezone === 'string') {
+					setSession({
+						...session,
+						user: {
+							...session.user,
+							timezone: data.timezone,
+						},
+					});
+				}
 			}}
 		/>
 	);

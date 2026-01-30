@@ -69,7 +69,7 @@ export default function RegisterPage() {
 		onError: (error: Error) => {
 			setForm((prev: any) => ({
 				...prev,
-				errors: { name: error.message },
+				errors: { name: t(error.message) },
 			}));
 		},
 	});
@@ -92,7 +92,7 @@ export default function RegisterPage() {
 				name: validatedFields.data.name,
 			});
 		} catch (error: any) {
-			toast.error(error.message as string);
+			toast.error(t((error?.message as string) || 'Something went wrong'));
 		}
 	};
 

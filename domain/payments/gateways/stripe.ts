@@ -1,3 +1,4 @@
+import { BusinessRuleError } from '@/domain/errors';
 import Stripe from 'stripe';
 
 export type CheckoutSessionOptions = {
@@ -219,7 +220,7 @@ export default class StripeGateway {
 		const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
 		const itemId = sub.items.data[0]?.id;
 		if (!itemId) {
-			throw new Error('Subscription has no items');
+			throw new BusinessRuleError('Subscription has no items');
 		}
 		const updateParams: Stripe.SubscriptionUpdateParams = {
 			items: [

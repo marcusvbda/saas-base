@@ -77,7 +77,7 @@ export default function RepositoryProvider() {
 			setIsDrawerOpen(false);
 		},
 		onError: (error: Error) => {
-			toast.error(error.message || t('Something went wrong'));
+			toast.error(error.message ? t(error.message) : t('Something went wrong'));
 		},
 	});
 
@@ -101,7 +101,7 @@ export default function RepositoryProvider() {
 			setIsDrawerOpen(false);
 		},
 		onError: (error: Error) => {
-			toast.error(error.message || t('Something went wrong'));
+			toast.error(error.message ? t(error.message) : t('Something went wrong'));
 		},
 	});
 
@@ -124,7 +124,7 @@ export default function RepositoryProvider() {
 			setIsDrawerOpen(false);
 		},
 		onError: (error: Error) => {
-			toast.error(error.message || t('Something went wrong'));
+			toast.error(error.message ? t(error.message) : t('Something went wrong'));
 		},
 	});
 

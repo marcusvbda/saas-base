@@ -56,7 +56,7 @@ export default function ClientPage({ token }: { token: string }) {
 		onError: (error: Error) => {
 			setForm((prev: any) => ({
 				...prev,
-				errors: { password: error.message },
+				errors: { password: t(error.message) },
 			}));
 		},
 	});
@@ -75,7 +75,7 @@ export default function ClientPage({ token }: { token: string }) {
 			setForm((prev: any) => ({ ...prev, errors: null }));
 			resetPasswordMutation.mutate(validatedFields.data.password);
 		} catch (err: any) {
-			toast.error(err.message);
+			toast.error(t(err?.message || 'Something went wrong'));
 		}
 	};
 

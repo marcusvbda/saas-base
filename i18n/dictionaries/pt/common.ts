@@ -15,6 +15,14 @@ const common = {
 	'{resource} updated successfully': '{resource} atualizado com sucesso',
 	'{resource} must be at least {quantity} characters long':
 		'{resource} deve ter pelo menos {quantity} caracteres',
+	// API / domain error messages (safe to show to user)
+	'Something went wrong': 'Algo deu errado',
+	'Invalid request': 'Requisição inválida',
+	Unauthorized: 'Não autorizado',
+	'Not found': 'Não encontrado',
+	Conflict: 'Conflito',
+	'Service temporarily unavailable': 'Serviço temporariamente indisponível',
+	'Request failed': 'Falha na requisição',
 };
 
 export default common;

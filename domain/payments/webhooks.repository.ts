@@ -8,9 +8,12 @@ export default class WebhooksRepository extends Repository {
 		);
 	}
 
+	private readonly columns =
+		'`id`, `event_id`, `event_type`, `processed_at`';
+
 	async findWebhookEvent(eventId: string) {
 		return await this.findOne(
-			'SELECT * FROM `stripe_webhook_events` WHERE `event_id` = :event_id',
+			`SELECT ${this.columns} FROM \`stripe_webhook_events\` WHERE \`event_id\` = :event_id`,
 			{ event_id: eventId },
 		);
 	}

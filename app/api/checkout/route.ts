@@ -2,11 +2,23 @@ import { currencyFromLocale } from '@/helpers/common';
 import PaymentsService, {
 	ALLOWED_RESOURCE_TYPES,
 } from '@/domain/payments/payments.service';
-import StripeGateway from '@/domain/payments/gateways/stripe';
 import { requireServerAuth } from '@/lib/better-auth/server';
+import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
+	const { allowed, retryAfter } = checkRateLimit(
+		getClientIdentifier(request),
+		'api:checkout:post',
+	);
+	if (!allowed) {
+		const res = NextResponse.json(
+			{ error: { message: 'Too many requests' } },
+			{ status: 429 },
+		);
+		if (retryAfter != null) res.headers.set('Retry-After', String(retryAfter));
+		return res;
+	}
 	return requireServerAuth(async ({ session }) => {
 		const body = (await request.json()) as {
 			metadata?: { resource_type?: string; resource_id?: string };
@@ -32,20 +44,19 @@ export async function POST(request: Request) {
 				{ status: 400 },
 			);
 		}
-		const stripeGateway = new StripeGateway();
-		const customerId = await stripeGateway.findOrCreateCustomer(
-			session.user.email ?? '',
-			{ userId: session.user.id },
-		);
 		const paymentsService = new PaymentsService();
 		const checkoutSession = await paymentsService.createSessionCheckout({
 			metadata,
 			currency,
 			locale: locale === 'pt' || locale === 'pt-BR' ? 'pt' : 'en',
-			customerId,
+			customerEmail: session.user.email ?? undefined,
+			customerMetadata: { userId: session.user.id },
 		});
 		if (!checkoutSession?.client_secret) {
-			throw new Error('Checkout session not found');
+			return NextResponse.json(
+				{ error: 'Checkout session could not be created' },
+				{ status: 500 },
+			);
 		}
 		return NextResponse.json({
 			clientSecret: checkoutSession.client_secret,

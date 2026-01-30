@@ -10,6 +10,7 @@
  * - charge.refunded
  */
 import PaymentsService from '@/domain/payments/payments.service';
+import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import Stripe from 'stripe';
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
@@ -17,6 +18,18 @@ import { NextResponse } from 'next/server';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: Request) {
+	const { allowed, retryAfter } = checkRateLimit(
+		getClientIdentifier(req),
+		'api:webhooks:stripe',
+	);
+	if (!allowed) {
+		const res = NextResponse.json(
+			{ error: 'Too many requests' },
+			{ status: 429 },
+		);
+		if (retryAfter != null) res.headers.set('Retry-After', String(retryAfter));
+		return res;
+	}
 	let event: Stripe.Event;
 	try {
 		const signature = (await headers()).get('stripe-signature');

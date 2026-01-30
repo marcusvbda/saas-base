@@ -1,5 +1,4 @@
 import Repository from '@/database/repository';
-import StripeGateway from '../payments/gateways/stripe';
 
 type BillingData = {
 	card_number?: string | null;
@@ -8,15 +7,27 @@ type BillingData = {
 	card_expiry_year?: string | null;
 	card_cvv?: string | null;
 };
+const userColumns =
+	'`id`, `name`, `email`, `emailVerified`, `image`, `createdAt`, `updatedAt`';
+const verificationColumns = '`id`, `identifier`, `value`, `expiresAt`, `createdAt`, `updatedAt`';
+const userBillingColumns =
+	'`id`, `user_id`, `card_number`, `card_holder_name`, `card_expiry_month`, `card_expiry_year`, `card_cvv`';
+const userSubscriptionColumns =
+	'`id`, `user_id`, `subscription_id`, `plan`, `stripe_customer_id`, `status`, `current_period_start`, `current_period_end`, `cancel_at_period_end`, `created_at`, `updated_at`';
+
 export default class UserRepository extends Repository {
 	async findById(id: string) {
-		return await this.findOne('SELECT * FROM `user` WHERE id = :id', { id });
+		return await this.findOne(
+			`SELECT ${userColumns} FROM \`user\` WHERE id = :id`,
+			{ id },
+		);
 	}
 
 	async findByEmail(email: string) {
-		return await this.findOne('SELECT * FROM `user` WHERE email = :email', {
-			email,
-		});
+		return await this.findOne(
+			`SELECT ${userColumns} FROM \`user\` WHERE email = :email`,
+			{ email },
+		);
 	}
 
 	async updatePassword(userId: string, hashedPassword: string) {
@@ -38,7 +49,7 @@ export default class UserRepository extends Repository {
 
 	async findPasswordVerificationToken(token: string) {
 		return await this.findOne(
-			'SELECT * FROM `verification` WHERE `value` = :token AND `expiresAt` > NOW()',
+			`SELECT ${verificationColumns} FROM \`verification\` WHERE \`value\` = :token AND \`expiresAt\` > NOW()`,
 			{ token },
 		);
 	}
@@ -68,7 +79,7 @@ export default class UserRepository extends Repository {
 
 	async findBillingByUserId(userId: string) {
 		return await this.findOne(
-			'SELECT * FROM `user_billing` WHERE `user_id` = :userId',
+			`SELECT ${userBillingColumns} FROM \`user_billing\` WHERE \`user_id\` = :userId`,
 			{ userId },
 		);
 	}
@@ -131,14 +142,14 @@ export default class UserRepository extends Repository {
 
 	async getSubscriptionByUserId(userId: string) {
 		return await this.findOne(
-			'SELECT * FROM `user_subscriptions` WHERE `user_id` = :userId ORDER BY `updated_at` DESC',
+			`SELECT ${userSubscriptionColumns} FROM \`user_subscriptions\` WHERE \`user_id\` = :userId ORDER BY \`updated_at\` DESC`,
 			{ userId },
 		);
 	}
 
 	async getSubscriptionBySubscriptionId(subscriptionId: string) {
 		return await this.findOne(
-			'SELECT * FROM `user_subscriptions` WHERE `subscription_id` = :subscriptionId',
+			`SELECT ${userSubscriptionColumns} FROM \`user_subscriptions\` WHERE \`subscription_id\` = :subscriptionId`,
 			{ subscriptionId },
 		);
 	}
@@ -230,43 +241,4 @@ export default class UserRepository extends Repository {
 		);
 	}
 
-	async cancelSubscription(
-		subscription: {
-			id: number;
-			subscription_id: string;
-			current_period_end?: Date | null;
-		},
-		cancelAtPeriodEnd = true,
-	): Promise<{ cancelAtPeriodEnd: boolean; currentPeriodEnd: Date | null } | null> {
-		const stripeGateway = new StripeGateway();
-		await stripeGateway.cancelSubscription(
-			subscription.subscription_id,
-			cancelAtPeriodEnd,
-		);
-		if (cancelAtPeriodEnd) {
-			await this.updateSubscription(subscription.id, {
-				cancel_at_period_end: true,
-			});
-		}
-		const end = subscription.current_period_end
-			? new Date(subscription.current_period_end)
-			: null;
-		return { cancelAtPeriodEnd, currentPeriodEnd: end };
-	}
-
-	async reactivateSubscription(
-		subscription: {
-			id: number;
-			subscription_id: string;
-			cancel_at_period_end?: number;
-		},
-	): Promise<boolean> {
-		if (!subscription.cancel_at_period_end) return false;
-		const stripeGateway = new StripeGateway();
-		await stripeGateway.reactivateSubscription(subscription.subscription_id);
-		await this.updateSubscription(subscription.id, {
-			cancel_at_period_end: false,
-		});
-		return true;
-	}
 }

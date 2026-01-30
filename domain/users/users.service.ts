@@ -1,11 +1,14 @@
+import { NotFoundError } from '@/domain/errors';
 import { resend } from '@/lib/resend';
+import StripeGateway from '../payments/gateways/stripe';
 import UserRepository from './users.repository';
 import { hashPassword } from 'better-auth/crypto';
 import jwt from 'jsonwebtoken';
 
 export default class UserService {
+	private gateway: StripeGateway;
 	constructor(private repository: UserRepository = new UserRepository()) {
-		//
+		this.gateway = new StripeGateway();
 	}
 
 	async sendVerificationEmail(email: string, url: string) {
@@ -80,7 +83,7 @@ export default class UserService {
 		};
 		const user = await this.repository.findByEmail(payload.email);
 		if (!user) {
-			throw new Error('User not found');
+			throw new NotFoundError('User not found');
 		}
 		await this.repository.verifyUserById(user.id);
 	}
@@ -179,7 +182,19 @@ export default class UserService {
 	): Promise<{ cancelAtPeriodEnd: boolean; currentPeriodEnd: Date | null } | null> {
 		const subscription = await this.getSubscriptionByUserId(userId);
 		if (!subscription) return null;
-		return this.repository.cancelSubscription(subscription, cancelAtPeriodEnd);
+		await this.gateway.cancelSubscription(
+			subscription.subscription_id,
+			cancelAtPeriodEnd,
+		);
+		if (cancelAtPeriodEnd) {
+			await this.repository.updateSubscription(subscription.id, {
+				cancel_at_period_end: true,
+			});
+		}
+		const end = subscription.current_period_end
+			? new Date(subscription.current_period_end)
+			: null;
+		return { cancelAtPeriodEnd, currentPeriodEnd: end };
 	}
 
 	async getSubscriptionBySubscriptionId(subscriptionId: string) {
@@ -192,8 +207,12 @@ export default class UserService {
 
 	async reactivateSubscription(userId: string): Promise<boolean> {
 		const sub = await this.repository.getSubscriptionByUserId(userId);
-		if (!sub) return false;
-		return this.repository.reactivateSubscription(sub);
+		if (!sub || !sub.cancel_at_period_end) return false;
+		await this.gateway.reactivateSubscription(sub.subscription_id);
+		await this.repository.updateSubscription(sub.id, {
+			cancel_at_period_end: false,
+		});
+		return true;
 	}
 
 	async updateSubscriptionStatus(userId: string, status: string) {
