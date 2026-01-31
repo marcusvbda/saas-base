@@ -8,6 +8,7 @@ export type DailyReport = {
 	report_date: string;
 	content: string;
 	status: ReportStatus;
+	enhanced_at: string | null;
 	created_at: string;
 	updated_at: string;
 };
@@ -20,7 +21,7 @@ export type DailyReportInput = {
 
 export default class ReportsRepository extends Repository {
 	private readonly columns =
-		'`id`, `user_id`, `report_date`, `content`, `status`, `created_at`, `updated_at`';
+		'`id`, `user_id`, `report_date`, `content`, `status`, `enhanced_at`, `created_at`, `updated_at`';
 
 	async findById(id: number): Promise<DailyReport | null> {
 		return this.findOne(
@@ -103,11 +104,19 @@ export default class ReportsRepository extends Repository {
 		userId: string,
 		id: number,
 		content: string,
+		enhanced?: boolean,
 	): Promise<void> {
-		await this.execute(
-			`UPDATE \`daily_reports\` SET \`content\` = :content, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
-			{ id, userId, content },
-		);
+		if (enhanced) {
+			await this.execute(
+				`UPDATE \`daily_reports\` SET \`content\` = :content, \`enhanced_at\` = CURRENT_TIMESTAMP, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
+				{ id, userId, content },
+			);
+		} else {
+			await this.execute(
+				`UPDATE \`daily_reports\` SET \`content\` = :content, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
+				{ id, userId, content },
+			);
+		}
 	}
 
 	async deleteByIdForUser(userId: string, id: number): Promise<void> {

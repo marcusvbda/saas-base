@@ -20,6 +20,7 @@ export async function GET() {
 const updateBodySchema = z.object({
 	id: z.number().int().positive(),
 	content: z.string(),
+	enhanced: z.boolean().optional(),
 });
 
 const deleteBodySchema = z.object({
@@ -42,6 +43,7 @@ export async function PUT(request: NextRequest) {
 				session.user.id,
 				parsed.data.id,
 				parsed.data.content,
+				parsed.data.enhanced,
 			);
 			return NextResponse.json({ data: { success: true } });
 		} catch (error) {
@@ -98,6 +100,29 @@ export async function POST(request: NextRequest) {
 						status: report.status,
 					},
 				});
+			}
+			if (action === 'enhance') {
+				const reportId = Number(json.report_id);
+				if (!reportId || Number.isNaN(reportId)) {
+					return NextResponse.json(
+						{ error: { message: 'Invalid report_id' } },
+						{ status: 400 },
+					);
+				}
+				const subscription = (session as { subscription?: string })
+					?.subscription;
+				if (subscription !== 'pro') {
+					return NextResponse.json(
+						{ error: { message: 'Enhance with AI is available on Pro plan' } },
+						{ status: 403 },
+					);
+				}
+				const service = new ReportsService();
+				const result = await service.enhanceReportWithAI(
+					session.user.id,
+					reportId,
+				);
+				return NextResponse.json({ data: result });
 			}
 			if (action === 'regenerate') {
 				const reportId = Number(json.report_id);

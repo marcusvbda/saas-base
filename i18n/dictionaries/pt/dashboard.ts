@@ -29,6 +29,11 @@ const dashboard = {
 	'Delete report': 'Excluir relatório',
 	'Report deleted': 'Relatório excluído',
 	'Draft saved': 'Rascunho salvo',
+	'Enhance with AI': 'Melhorar com IA',
+	'Enhanced with AI': 'Melhorado com IA',
+	'Enhance with AI (Pro)': 'Melhorar com IA (Pro)',
+	'Review the enhanced content and save if you want':
+		'Revise o conteúdo melhorado e salve se quiser',
 	'Copied to clipboard': 'Copiado para a área de transferência',
 	'Failed to copy': 'Falha ao copiar',
 };

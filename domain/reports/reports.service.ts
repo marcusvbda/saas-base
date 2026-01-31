@@ -1,5 +1,6 @@
 import { pusher } from '@/lib/pusher';
-import { NotFoundError } from '@/domain/errors';
+import { enhanceReportContent } from '@/lib/enhance-report';
+import { BusinessRuleError, NotFoundError } from '@/domain/errors';
 import IntegrationsRepository from '@/domain/integrations/integrations.repository';
 import ReportsRepository, { DailyReport } from './reports.repository';
 
@@ -308,12 +309,31 @@ export default class ReportsService {
 		userId: string,
 		id: number,
 		content: string,
+		enhanced?: boolean,
 	): Promise<void> {
 		const existing = await this.reportsRepo.findByIdForUser(userId, id);
 		if (!existing) {
 			throw new NotFoundError('Report not found');
 		}
-		await this.reportsRepo.updateContent(userId, id, content);
+		await this.reportsRepo.updateContent(userId, id, content, enhanced);
+	}
+
+	async enhanceReportWithAI(
+		userId: string,
+		reportId: number,
+	): Promise<{ content: string }> {
+		const report = await this.reportsRepo.findByIdForUser(userId, reportId);
+		if (!report) {
+			throw new NotFoundError('Report not found');
+		}
+		if (report.status === 'processing') {
+			throw new BusinessRuleError('Report is still processing');
+		}
+		if (!report.content?.trim()) {
+			throw new BusinessRuleError('Report has no content to enhance');
+		}
+		const content = await enhanceReportContent(report.content);
+		return { content };
 	}
 
 	async generateReport(payload: {

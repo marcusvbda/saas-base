@@ -12,7 +12,9 @@ import {
 	FileText,
 	Loader2,
 	Trash2,
+	Sparkles,
 } from 'lucide-react';
+import PlanGate from '@/components/plan-gate';
 import { useLocale } from '@/hooks/use-locale';
 import { useSession } from '@/providers/session.provider';
 import BasePage from '@/app/[locale]/(protected)/base-page';
@@ -48,6 +50,7 @@ type DailyReport = {
 	report_date: string;
 	content: string;
 	status?: 'processing' | 'ready' | 'failed';
+	enhanced_at?: string | null;
 	created_at: string;
 	updated_at: string;
 };
@@ -137,9 +140,7 @@ export default function DashboardContent() {
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['reports'] });
-			toast.success(
-				t('Report is being generated. You can close this page.'),
-			);
+			toast.success(t('Report is being generated. You can close this page.'));
 		},
 		onError: (err: Error) => {
 			toast.error(err.message ? t(err.message) : t('Something went wrong'));
@@ -173,11 +174,19 @@ export default function DashboardContent() {
 	});
 
 	const updateContentMutation = useMutation({
-		mutationFn: async ({ id, content }: { id: number; content: string }) => {
+		mutationFn: async ({
+			id,
+			content,
+			enhanced,
+		}: {
+			id: number;
+			content: string;
+			enhanced?: boolean;
+		}) => {
 			const res = await fetch('/api/reports', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ id, content }),
+				body: JSON.stringify({ id, content, enhanced }),
 			});
 			const json = await res.json();
 			if (!res.ok || json.error) {
@@ -193,6 +202,39 @@ export default function DashboardContent() {
 			toast.error(err.message ? t(err.message) : t('Something went wrong'));
 		},
 	});
+
+	const enhanceMutation = useMutation({
+		mutationFn: async (reportId: number) => {
+			const res = await fetch('/api/reports', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'enhance', report_id: reportId }),
+			});
+			const json = await res.json();
+			if (!res.ok || json.error) {
+				throw new Error(json?.error?.message ?? 'Failed to enhance');
+			}
+			return json.data as { content: string };
+		},
+		onError: (err: Error) => {
+			toast.error(err.message ? t(err.message) : t('Something went wrong'));
+		},
+	});
+
+	const [editingId, setEditingId] = useState<number | null>(null);
+	const [editedContent, setEditedContent] = useState<string>('');
+	const [enhancedReportId, setEnhancedReportId] = useState<number | null>(null);
+
+	const handleEnhance = useCallback(
+		async (report: DailyReport) => {
+			const result = await enhanceMutation.mutateAsync(report.id);
+			setEditingId(report.id);
+			setEditedContent(result.content);
+			setEnhancedReportId(report.id);
+			toast.success(t('Review the enhanced content and save if you want'));
+		},
+		[enhanceMutation, t],
+	);
 
 	const deleteMutation = useMutation({
 		mutationFn: async (reportId: number) => {
@@ -219,16 +261,17 @@ export default function DashboardContent() {
 	const hasRepositoryIntegration = integrations.length > 0;
 	const today = todayISO();
 	const todayReport = useMemo(
-		() => reports.find((r: DailyReport) => reportDateOnly(r.report_date) === today),
+		() =>
+			reports.find((r: DailyReport) => reportDateOnly(r.report_date) === today),
 		[reports, today],
 	);
 	const recentReports = useMemo(
-		() => reports.filter((r: DailyReport) => reportDateOnly(r.report_date) !== today),
+		() =>
+			reports.filter(
+				(r: DailyReport) => reportDateOnly(r.report_date) !== today,
+			),
 		[reports, today],
 	);
-
-	const [editingId, setEditingId] = useState<number | null>(null);
-	const [editedContent, setEditedContent] = useState<string>('');
 
 	const startEdit = useCallback((report: DailyReport) => {
 		setEditingId(report.id);
@@ -238,19 +281,23 @@ export default function DashboardContent() {
 	const cancelEdit = useCallback(() => {
 		setEditingId(null);
 		setEditedContent('');
+		setEnhancedReportId(null);
 	}, []);
 
 	const handleSave = useCallback(
 		async (report: DailyReport) => {
 			if (editingId !== report.id) return;
+			const isEnhancedSave = enhancedReportId === report.id;
 			await updateContentMutation.mutateAsync({
 				id: report.id,
 				content: editedContent,
+				enhanced: isEnhancedSave,
 			});
 			setEditingId(null);
 			setEditedContent('');
+			if (isEnhancedSave) setEnhancedReportId(null);
 		},
-		[editingId, editedContent, updateContentMutation],
+		[editingId, editedContent, enhancedReportId, updateContentMutation],
 	);
 
 	const handleCopy = useCallback(
@@ -305,7 +352,7 @@ export default function DashboardContent() {
 		);
 	}
 
-		if (!hasRepositoryIntegration) {
+	if (!hasRepositoryIntegration) {
 		return (
 			<BasePage
 				breadcrumbItems={[{ title: t('Dashboard') }]}
@@ -396,12 +443,14 @@ export default function DashboardContent() {
 							onStartEdit={startEdit}
 							onCancelEdit={cancelEdit}
 							onSave={handleSave}
+							onEnhance={handleEnhance}
 							onContentChange={setEditedContent}
 							onCopy={handleCopy}
 							onRegenerate={handleRegenerate}
 							onDelete={undefined}
 							updatePending={updateContentMutation.isPending}
 							regeneratePending={regenerateMutation.isPending}
+							enhancePending={enhanceMutation.isPending}
 							deletePending={deleteMutation.isPending}
 							t={t}
 						/>
@@ -423,12 +472,14 @@ export default function DashboardContent() {
 										onStartEdit={startEdit}
 										onCancelEdit={cancelEdit}
 										onSave={handleSave}
+										onEnhance={handleEnhance}
 										onContentChange={setEditedContent}
 										onCopy={handleCopy}
 										onRegenerate={handleRegenerate}
 										onDelete={handleDelete}
 										updatePending={updateContentMutation.isPending}
 										regeneratePending={regenerateMutation.isPending}
+										enhancePending={enhanceMutation.isPending}
 										deletePending={deleteMutation.isPending}
 										t={t}
 									/>
@@ -450,12 +501,14 @@ function ReportCard({
 	onStartEdit,
 	onCancelEdit,
 	onSave,
+	onEnhance,
 	onContentChange,
 	onCopy,
 	onRegenerate,
 	onDelete,
 	updatePending,
 	regeneratePending,
+	enhancePending,
 	deletePending,
 	t,
 }: {
@@ -466,28 +519,45 @@ function ReportCard({
 	onStartEdit: (report: DailyReport) => void;
 	onCancelEdit: () => void;
 	onSave: (report: DailyReport) => void;
+	onEnhance: (report: DailyReport) => void;
 	onContentChange: (value: string) => void;
 	onCopy: (report: DailyReport) => void;
 	onRegenerate: (reportId: number) => void;
 	onDelete?: (reportId: number) => void;
 	updatePending: boolean;
 	regeneratePending: boolean;
+	enhancePending: boolean;
 	deletePending: boolean;
 	t: (key: string) => string;
 }) {
 	const isEditing = editingId === report.id;
 	const isToday = reportDateOnly(report.report_date) === todayISO();
 	const isProcessing = report.status === 'processing';
+	const isEnhanced = !!report.enhanced_at;
 
 	return (
-		<Card>
+		<Card
+			className={
+				isEnhanced
+					? 'border-2 border-cyan-400/60 shadow-[0_0_12px_rgba(34,211,238,0.15)]'
+					: undefined
+			}
+		>
 			<CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-				<CardTitle className="text-base flex items-center gap-2">
-					{isToday ? t("Today's Draft") : formatReportDate(report.report_date, locale)}
+				<CardTitle className="text-base flex items-center gap-2 flex-wrap">
+					{isToday
+						? t("Today's Draft")
+						: formatReportDate(report.report_date, locale)}
 					{isProcessing && (
 						<span className="inline-flex items-center gap-1.5 text-muted-foreground font-normal text-sm">
 							<Loader2 className="h-4 w-4 animate-spin" />
 							{t('Processing…')}
+						</span>
+					)}
+					{isEnhanced && (
+						<span className="inline-flex items-center gap-1 text-cyan-600 dark:text-cyan-400 font-normal text-xs">
+							<Sparkles className="h-3.5 w-3.5" />
+							{t('Enhanced with AI')}
 						</span>
 					)}
 				</CardTitle>
@@ -531,6 +601,36 @@ function ReportCard({
 						<Copy className="mr-2 h-4 w-4" />
 						{t('Copy')}
 					</Button>
+					<PlanGate
+						allowedPlans={['pro']}
+						fallback={
+							<Button
+								variant="outline"
+								size="sm"
+								disabled
+								className="opacity-70"
+								title={t('Enhance with AI (Pro)')}
+							>
+								<Sparkles className="h-4 w-4" />
+								<span className="sr-only">{t('Enhance with AI (Pro)')}</span>
+							</Button>
+						}
+					>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => onEnhance(report)}
+							disabled={enhancePending || isProcessing || isEditing}
+							className="border-cyan-500/50 text-cyan-700 dark:text-cyan-400 hover:bg-cyan-500/10"
+						>
+							{enhancePending ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								<Sparkles className="h-4 w-4" />
+							)}
+							<span className="sr-only">{t('Enhance with AI')}</span>
+						</Button>
+					</PlanGate>
 					<Button
 						variant="outline"
 						size="sm"

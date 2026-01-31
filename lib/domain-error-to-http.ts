@@ -41,9 +41,13 @@ export function domainErrorToHttp(error: unknown): HttpErrorResponse {
 		return { status: 400, body: { error: { message: error.message } } };
 	}
 	if (error instanceof InfrastructureError) {
+		const message =
+			process.env.NODE_ENV !== 'production' && error.message
+				? error.message
+				: 'Service temporarily unavailable';
 		return {
 			status: 503,
-			body: { error: { message: 'Service temporarily unavailable' } },
+			body: { error: { message } },
 		};
 	}
 	return { status: 500, body: { error: { message: 'Something went wrong' } } };
