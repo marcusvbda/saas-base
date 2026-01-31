@@ -16,11 +16,15 @@ const dashboard = {
 	'Copy draft': 'Copiar rascunho',
 	Copy: 'Copiar',
 	Regenerate: 'Regenerar',
+	Save: 'Salvar',
 	'Save and copy': 'Salvar e copiar',
 	Cancel: 'Cancelar',
 	'Cancel edit': 'Cancelar edição',
 	'Report is being generated. You can close this page.':
 		'Relatório está sendo gerado. Você pode fechar esta página.',
+	'Report is being generated. You can close this page; the card will update when ready.':
+		'Relatório está sendo gerado. Você pode fechar esta página; o card será atualizado quando estiver pronto.',
+	'Processing…': 'Processando…',
 	'Report is being regenerated.': 'Relatório está sendo regenerado.',
 	'Delete report': 'Excluir relatório',
 	'Report deleted': 'Relatório excluído',

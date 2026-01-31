@@ -7,6 +7,15 @@ function formatReportDate(date: Date): string {
 	return date.toISOString().slice(0, 10);
 }
 
+/** Normalize to YYYY-MM-DD (report_date from DB may be Date or string) */
+function toReportDateString(value: Date | string | undefined): string {
+	if (value == null) return formatReportDate(new Date());
+	if (value instanceof Date) return formatReportDate(value);
+	const s = String(value).trim();
+	if (s.length >= 10) return s.slice(0, 10);
+	return s || formatReportDate(new Date());
+}
+
 type ReportLabels = {
 	yesterday: string;
 	today: string;
@@ -78,39 +87,77 @@ function buildReportSections(
 }
 
 /** day (YYYY-MM-DD) -> project name -> branch name -> commit titles */
-type ReportByDayProjectBranch = Map<
-	string,
-	Map<string, Map<string, string[]>>
->;
+type ReportByDayProjectBranch = Map<string, Map<string, Map<string, string[]>>>;
+
+const MONTH_ABBR_EN = [
+	'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+	'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+const MONTH_ABBR_PT = [
+	'jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.',
+	'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.',
+];
+
+/** Format YYYY-MM-DD as "30 Jan 2026" or "30 jan. 2026" (pt) */
+function formatDayDisplay(dayStr: string, locale?: string): string {
+	const [y, m, d] = dayStr.slice(0, 10).split('-').map(Number);
+	const months = locale === 'pt' ? MONTH_ABBR_PT : MONTH_ABBR_EN;
+	const month = months[(m ?? 1) - 1] ?? '';
+	return `${d ?? 0} ${month} ${y ?? ''}`.trim();
+}
+
+function getDaysInRange(reportDate: string): string[] {
+	const reportDay = new Date(reportDate + 'T12:00:00.000Z');
+	const dayBefore = new Date(reportDay);
+	dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+	return [
+		dayBefore.toISOString().slice(0, 10),
+		reportDate.slice(0, 10),
+	].sort();
+}
+
+/** Always show the date (e.g. "30 Jan 2026" / "30 jan. 2026"), never "Ontem" / "Hoje" */
+function formatDayLabel(dayStr: string, locale?: string): string {
+	return formatDayDisplay(dayStr, locale);
+}
 
 function buildReportByDayProjectBranch(
 	labels: ReportLabels,
 	grouped: ReportByDayProjectBranch,
 	reportDate?: string,
+	locale?: string,
 ): string {
-	const days = Array.from(grouped.keys()).sort();
-	if (days.length === 0) {
-		const dayLabel =
-			reportDate === formatReportDate(new Date()) ? labels.today : reportDate ?? labels.today;
-		return `${dayLabel}\n- ${labels.noActivity}`;
-	}
+	const today = formatReportDate(new Date());
+	const reportDateStr = reportDate?.slice(0, 10) ?? today;
+	const daysInRange = getDaysInRange(reportDateStr);
 	const lines: string[] = [];
-	for (const day of days) {
-		const byProject = grouped.get(day)!;
-		const dayLabel = day === formatReportDate(new Date()) ? labels.today : day;
-		lines.push(dayLabel);
+
+	for (const day of daysInRange) {
+		const dayLabel = formatDayLabel(day, locale);
+		lines.push('');
+		lines.push(`## ${dayLabel}`);
+		lines.push('');
+
+		const byProject = grouped.get(day);
+		if (!byProject || byProject.size === 0) {
+			lines.push(labels.noActivity);
+			lines.push('');
+			continue;
+		}
+
 		for (const [projectName, byBranch] of byProject) {
-			lines.push(`  ${projectName}`);
+			lines.push(`**${projectName}**`);
+			lines.push('');
 			for (const [branchName, commits] of byBranch) {
-				lines.push(`    ${branchName}`);
+				lines.push(`- **${branchName}**`);
 				for (const title of commits) {
-					lines.push(`    - ${title}`);
+					lines.push(`  - ${title}`);
 				}
+				lines.push('');
 			}
 		}
-		lines.push('');
 	}
-	return lines.join('\n').trimEnd();
+	return lines.join('\n').trim();
 }
 
 function addToGrouped(
@@ -148,6 +195,7 @@ async function fetchGitLabReportContent(
 	labels: ReportLabels,
 	projectIds: number[] | null,
 	ignoredBranchesByProject: IgnoredBranchesByProject | null,
+	locale?: string,
 ): Promise<string> {
 	const headers = { 'PRIVATE-TOKEN': token };
 	const grouped: ReportByDayProjectBranch = new Map();
@@ -160,19 +208,17 @@ async function fetchGitLabReportContent(
 	const until = reportDate + 'T23:59:59.999Z';
 
 	try {
-		// Current user for filtering commits by author
+		// Author from token: /user gives username/email used for GitLab "author" filter
 		const userRes = await fetch(`${baseUrl}/api/v4/user`, { headers });
 		if (!userRes.ok) {
-			return buildReportByDayProjectBranch(labels, grouped, reportDate);
+			return buildReportByDayProjectBranch(labels, grouped, reportDate, locale);
 		}
 		const user = (await userRes.json()) as {
 			name: string;
 			username?: string;
 			email?: string;
 		};
-		const isAuthor = (authorName: string, authorEmail?: string) =>
-			authorName === user.name ||
-			(authorEmail != null && authorEmail === user.email);
+		const authorParam = user.username ?? user.email ?? user.name;
 
 		// Resolve project IDs to query
 		let ids = projectIds ?? [];
@@ -182,7 +228,7 @@ async function fetchGitLabReportContent(
 				{ headers },
 			);
 			if (!projectsRes.ok) {
-				return buildReportByDayProjectBranch(labels, grouped, reportDate);
+				return buildReportByDayProjectBranch(labels, grouped, reportDate, locale);
 			}
 			const projects = (await projectsRes.json()) as Array<{ id: number }>;
 			ids = projects.map((p) => p.id);
@@ -194,51 +240,53 @@ async function fetchGitLabReportContent(
 				{ headers },
 			);
 			if (!projectRes.ok) continue;
-			const project = (await projectRes.json()) as {
-				name: string;
-				default_branch: string | null;
-			};
+			const project = (await projectRes.json()) as { name: string };
 			const projectName = project.name;
 
-			// List branches (per project) then commits per branch
-			const branchesRes = await fetch(
-				`${baseUrl}/api/v4/projects/${encodeURIComponent(projectId)}/repository/branches?per_page=50`,
+			// All commits by this author in the date range (all branches in one call)
+			const commitsRes = await fetch(
+				`${baseUrl}/api/v4/projects/${encodeURIComponent(projectId)}/repository/commits?all=true&author=${encodeURIComponent(authorParam)}&since=${encodeURIComponent(since)}&until=${encodeURIComponent(until)}&per_page=100`,
 				{ headers },
 			);
-			if (!branchesRes.ok) continue;
-			const branches = (await branchesRes.json()) as Array<{ name: string }>;
-			for (const { name: branchName } of branches) {
-				if (
-					isBranchIgnoredForProject(
-						ignoredBranchesByProject,
-						projectId,
-						branchName,
-					)
-				) {
-					continue;
-				}
-				const commitsRes = await fetch(
-					`${baseUrl}/api/v4/projects/${encodeURIComponent(projectId)}/repository/commits?ref_name=${encodeURIComponent(branchName)}&since=${encodeURIComponent(since)}&until=${encodeURIComponent(until)}&per_page=100`,
+			if (!commitsRes.ok) continue;
+			const commits = (await commitsRes.json()) as Array<{
+				id: string;
+				title: string;
+				committed_date: string;
+			}>;
+
+			const maxRefsPerProject = 50;
+			for (let i = 0; i < Math.min(commits.length, maxRefsPerProject); i++) {
+				const c = commits[i];
+				const day = c.committed_date.slice(0, 10);
+				const refsRes = await fetch(
+					`${baseUrl}/api/v4/projects/${encodeURIComponent(projectId)}/repository/commits/${encodeURIComponent(c.id)}/refs?type=branch`,
 					{ headers },
 				);
-				if (!commitsRes.ok) continue;
-				const commits = (await commitsRes.json()) as Array<{
-					title: string;
-					author_name: string;
-					author_email?: string;
-					committed_date: string;
+				if (!refsRes.ok) continue;
+				const refs = (await refsRes.json()) as Array<{
+					type: string;
+					name: string;
 				}>;
-				for (const c of commits) {
-					if (!isAuthor(c.author_name, c.author_email)) continue;
-					const day = c.committed_date.slice(0, 10);
-					addToGrouped(grouped, day, projectName, branchName, c.title);
-				}
+				const branchNames = refs
+					.filter((r) => r.type === 'branch')
+					.map((r) => r.name)
+					.filter(
+						(branchName) =>
+							!isBranchIgnoredForProject(
+								ignoredBranchesByProject,
+								projectId,
+								branchName,
+							),
+					);
+				if (branchNames.length === 0) continue;
+				addToGrouped(grouped, day, projectName, branchNames[0], c.title);
 			}
 		}
 
-		return buildReportByDayProjectBranch(labels, grouped, reportDate);
+		return buildReportByDayProjectBranch(labels, grouped, reportDate, locale);
 	} catch {
-		return buildReportByDayProjectBranch(labels, grouped, reportDate);
+		return buildReportByDayProjectBranch(labels, grouped, reportDate, locale);
 	}
 }
 
@@ -270,11 +318,11 @@ export default class ReportsService {
 
 	async generateReport(payload: {
 		userId: string;
-		reportDate?: string;
+		reportDate?: string | Date;
 		locale?: string;
 	}): Promise<{ report_date: string }> {
 		const userId = payload.userId;
-		const reportDate = payload.reportDate ?? formatReportDate(new Date());
+		const reportDate = toReportDateString(payload.reportDate);
 		const labels = getReportLabels(payload.locale ?? 'en');
 
 		const integrations = await this.integrationsRepo.findAllByUserIdAndType(
@@ -307,7 +355,9 @@ export default class ReportsService {
 			labels,
 			integration.projects,
 			integration.ignored_branches,
+			payload.locale,
 		);
+
 		await this.reportsRepo.upsert(userId, {
 			report_date: reportDate,
 			content,
@@ -329,10 +379,7 @@ export default class ReportsService {
 		return { id, report_date: reportDate, status: 'processing' };
 	}
 
-	async setReportProcessing(
-		userId: string,
-		reportId: number,
-	): Promise<void> {
+	async setReportProcessing(userId: string, reportId: number): Promise<void> {
 		const report = await this.reportsRepo.findByIdForUser(userId, reportId);
 		if (!report) {
 			throw new NotFoundError('Report not found');
@@ -352,10 +399,11 @@ export default class ReportsService {
 		if (!report) {
 			throw new NotFoundError('Report not found');
 		}
-		// generateReport will upsert with status 'ready' and trigger Pusher
+		// Use the report's original date so regeneration keeps the same report_date
+		const reportDate = toReportDateString(report.report_date);
 		return this.generateReport({
 			userId: payload.userId,
-			reportDate: report.report_date,
+			reportDate,
 			locale: payload.locale,
 		});
 	}

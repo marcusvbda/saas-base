@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import Pusher from 'pusher-js';
 import Link from 'next/link';
 import {
@@ -51,9 +52,26 @@ type DailyReport = {
 	updated_at: string;
 };
 
-function formatReportDate(dateStr: string): string {
-	const d = new Date(dateStr + 'Z');
-	return d.toLocaleDateString(undefined, {
+/** Normalize report_date from API (ISO or YYYY-MM-DD) to YYYY-MM-DD for comparison */
+function reportDateOnly(reportDate: string | undefined): string {
+	if (!reportDate) return '';
+	const s = reportDate.trim();
+	if (s.length >= 10) return s.slice(0, 10);
+	return s;
+}
+
+function formatReportDate(
+	dateStr: string | undefined,
+	locale?: string,
+): string {
+	if (!dateStr) return '';
+	const normalized = dateStr.includes('T')
+		? dateStr
+		: dateStr.slice(0, 10) + 'T12:00:00.000Z';
+	const d = new Date(normalized);
+	if (Number.isNaN(d.getTime())) return '';
+	const localeTag = locale === 'pt' ? 'pt-BR' : 'en-US';
+	return d.toLocaleDateString(localeTag, {
 		weekday: 'long',
 		year: 'numeric',
 		month: 'short',
@@ -201,11 +219,11 @@ export default function DashboardContent() {
 	const hasRepositoryIntegration = integrations.length > 0;
 	const today = todayISO();
 	const todayReport = useMemo(
-		() => reports.find((r: DailyReport) => r.report_date === today),
+		() => reports.find((r: DailyReport) => reportDateOnly(r.report_date) === today),
 		[reports, today],
 	);
 	const recentReports = useMemo(
-		() => reports.filter((r: DailyReport) => r.report_date !== today),
+		() => reports.filter((r: DailyReport) => reportDateOnly(r.report_date) !== today),
 		[reports, today],
 	);
 
@@ -222,6 +240,19 @@ export default function DashboardContent() {
 		setEditedContent('');
 	}, []);
 
+	const handleSave = useCallback(
+		async (report: DailyReport) => {
+			if (editingId !== report.id) return;
+			await updateContentMutation.mutateAsync({
+				id: report.id,
+				content: editedContent,
+			});
+			setEditingId(null);
+			setEditedContent('');
+		},
+		[editingId, editedContent, updateContentMutation],
+	);
+
 	const handleCopy = useCallback(
 		async (report: DailyReport) => {
 			const isEditing = editingId === report.id;
@@ -233,6 +264,8 @@ export default function DashboardContent() {
 					id: report.id,
 					content: editedContent,
 				});
+			}
+			if (isEditing) {
 				setEditingId(null);
 				setEditedContent('');
 			}
@@ -272,7 +305,7 @@ export default function DashboardContent() {
 		);
 	}
 
-	if (!hasRepositoryIntegration) {
+		if (!hasRepositoryIntegration) {
 		return (
 			<BasePage
 				breadcrumbItems={[{ title: t('Dashboard') }]}
@@ -288,14 +321,6 @@ export default function DashboardContent() {
 					onAction={() => router.push('/integrations')}
 					actionIcon={null}
 				/>
-				<div className="mt-4">
-					<Button
-						variant="outline"
-						onClick={() => router.push('/integrations')}
-					>
-						{t('Go to Integrations')}
-					</Button>
-				</div>
 			</BasePage>
 		);
 	}
@@ -365,10 +390,12 @@ export default function DashboardContent() {
 					{!reportsLoading && todayReport && (
 						<ReportCard
 							report={todayReport}
+							locale={locale}
 							editingId={editingId}
 							editedContent={editedContent}
 							onStartEdit={startEdit}
 							onCancelEdit={cancelEdit}
+							onSave={handleSave}
 							onContentChange={setEditedContent}
 							onCopy={handleCopy}
 							onRegenerate={handleRegenerate}
@@ -390,10 +417,12 @@ export default function DashboardContent() {
 									<ReportCard
 										key={report.id}
 										report={report}
+										locale={locale}
 										editingId={editingId}
 										editedContent={editedContent}
 										onStartEdit={startEdit}
 										onCancelEdit={cancelEdit}
+										onSave={handleSave}
 										onContentChange={setEditedContent}
 										onCopy={handleCopy}
 										onRegenerate={handleRegenerate}
@@ -415,10 +444,12 @@ export default function DashboardContent() {
 
 function ReportCard({
 	report,
+	locale,
 	editingId,
 	editedContent,
 	onStartEdit,
 	onCancelEdit,
+	onSave,
 	onContentChange,
 	onCopy,
 	onRegenerate,
@@ -429,10 +460,12 @@ function ReportCard({
 	t,
 }: {
 	report: DailyReport;
+	locale?: string;
 	editingId: number | null;
 	editedContent: string;
 	onStartEdit: (report: DailyReport) => void;
 	onCancelEdit: () => void;
+	onSave: (report: DailyReport) => void;
 	onContentChange: (value: string) => void;
 	onCopy: (report: DailyReport) => void;
 	onRegenerate: (reportId: number) => void;
@@ -443,14 +476,14 @@ function ReportCard({
 	t: (key: string) => string;
 }) {
 	const isEditing = editingId === report.id;
-	const isToday = report.report_date === todayISO();
+	const isToday = reportDateOnly(report.report_date) === todayISO();
 	const isProcessing = report.status === 'processing';
 
 	return (
 		<Card>
 			<CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
 				<CardTitle className="text-base flex items-center gap-2">
-					{isToday ? t("Today's Draft") : formatReportDate(report.report_date)}
+					{isToday ? t("Today's Draft") : formatReportDate(report.report_date, locale)}
 					{isProcessing && (
 						<span className="inline-flex items-center gap-1.5 text-muted-foreground font-normal text-sm">
 							<Loader2 className="h-4 w-4 animate-spin" />
@@ -550,6 +583,14 @@ function ReportCard({
 						<div className="flex gap-2">
 							<Button
 								size="sm"
+								onClick={() => onSave(report)}
+								disabled={updatePending}
+							>
+								{t('Save')}
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
 								onClick={() => onCopy(report)}
 								disabled={updatePending}
 							>
@@ -561,9 +602,9 @@ function ReportCard({
 						</div>
 					</div>
 				) : (
-					<pre className="whitespace-pre-wrap font-sans text-sm text-muted-foreground bg-muted/50 p-4 rounded-md">
-						{report.content}
-					</pre>
+					<div className="report-markdown text-muted-foreground bg-muted/50 p-4 rounded-md text-sm [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:first:mt-0 [&_strong]:font-semibold [&_ul]:my-2 [&_ul]:pl-6 [&_ul_ul]:pl-5 [&_li]:my-0.5 [&_li]:leading-relaxed [&_p]:my-2 [&_p]:text-sm">
+						<ReactMarkdown>{report.content}</ReactMarkdown>
+					</div>
 				)}
 			</CardContent>
 		</Card>
