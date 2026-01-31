@@ -1,3 +1,8 @@
+---
+name: domain-services
+description: Defines the core business layer: business rules, invariants, orchestration patterns, transactions. Use when implementing domain logic, services, or use cases.
+---
+
 # Domain Services
 
 Domain Services represent the **core business logic** of the system.

@@ -1,3 +1,8 @@
+---
+name: code-review
+description: Defines mandatory code review standards: architecture enforcement, quality expectations, security checks. Use when reviewing pull requests or when the user asks for a code review.
+---
+
 # Code Review Standards
 
 All code — human-written or AI-generated — **must** comply with these standards.
@@ -77,7 +82,7 @@ Performance changes must be intentional and justified.
 Rules:
 
 - Never trust client input
-- Avoid expanding access scopes “just in case”
+- Avoid expanding access scopes "just in case"
 - Security regressions block approval
 
 ---
@@ -86,7 +91,7 @@ Rules:
 
 - Errors must be explicit and intentional
 - Silent failures are forbidden
-- Error handling must follow `error-taxonomy.md`
+- Error handling must follow `error-taxonomy` skill
 
 Rules:
 
@@ -117,7 +122,7 @@ AI-generated code is held to **the same or higher standards**:
 - No boilerplate without understanding
 - Must fully comply with architecture and security rules
 
-“I didn’t write it” is not an excuse.
+"I didn't write it" is not an excuse.
 
 ---
 
@@ -127,6 +132,6 @@ If the code surprises a senior engineer, it is wrong.
 
 If the reviewer needs to ask:
 
-> “Why is this here?”
+> "Why is this here?"
 
 The change is not ready.

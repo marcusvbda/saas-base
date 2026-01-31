@@ -1,3 +1,8 @@
+---
+name: backend
+description: Defines how API Routes behave as backend HTTP layer: input validation, auth, error handling, HTTP contracts. Use when writing API routes, app/api handlers, or backend HTTP logic.
+---
+
 # Backend API Routes (Next.js)
 
 API Routes act as the system's backend HTTP layer.
@@ -96,7 +101,7 @@ Ad-hoc response formats are forbidden.
 
 ### Error Translation
 
-- Domain errors are mapped using `error-taxonomy.md`
+- Domain errors are mapped using `error-taxonomy` skill
 - Each domain error maps to a single HTTP status
 - Error messages must be user-safe
 

@@ -1,3 +1,8 @@
+---
+name: database
+description: Defines database and persistence rules: raw SQL usage, repository boundaries, transactions, migrations. Use when writing repositories, SQL queries, or migrations.
+---
+
 # Database & Repositories
 
 The database layer is responsible for **data persistence only**.

@@ -1,3 +1,8 @@
+---
+name: error-taxonomy
+description: Defines shared error model and classification across domain, backend, and frontend. Use when handling errors, throwing domain errors, or mapping errors to HTTP/UX.
+---
+
 # Error Taxonomy
 
 Errors must be **explicit, predictable, and classified**.

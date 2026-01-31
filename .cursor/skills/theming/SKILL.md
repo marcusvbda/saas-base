@@ -1,3 +1,8 @@
+---
+name: theming
+description: Defines design system rules: design tokens, component consistency, mandatory dark/light mode support. Use when building UI components or implementing themes.
+---
+
 # Theming & Design System
 
 The design system defines the **visual contract** of the application.

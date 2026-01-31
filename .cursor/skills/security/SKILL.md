@@ -1,3 +1,8 @@
+---
+name: security
+description: Defines security standards: secret handling, environment variables, trust boundaries, threat mitigation. Use when handling secrets, validating input, or implementing auth.
+---
+
 # Security Standards
 
 Security is a **baseline requirement**, not an optional feature.
@@ -83,7 +88,7 @@ Rules:
 Rules:
 
 - Detailed errors belong only in server logs
-- Error responses must follow `error-taxonomy.md`
+- Error responses must follow `error-taxonomy` skill
 
 ---
 

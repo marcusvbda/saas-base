@@ -1,3 +1,8 @@
+---
+name: frontend
+description: Defines frontend standards for Next.js App Router, React 19, React Query, shadcn/ui. Use when building components, pages, hooks, or frontend state management.
+---
+
 # Frontend Architecture & UX
 
 ## Stack

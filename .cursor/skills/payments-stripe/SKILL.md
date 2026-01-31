@@ -1,3 +1,8 @@
+---
+name: payments-stripe
+description: Defines Stripe integration patterns, webhook validation, idempotency, and payment state safety. Use when implementing payment flows, webhooks, or Stripe integration.
+---
+
 # Payments & Stripe Integration
 
 Payments are **financially critical operations** and must be handled with

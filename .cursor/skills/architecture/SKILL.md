@@ -1,4 +1,9 @@
-## Architecture Overview
+---
+name: architecture
+description: Defines system boundaries, layering, dependency direction, and allowed imports for this project. Use when designing new features, adding layers, or when architecture or dependency rules are unclear.
+---
+
+# Architecture Overview
 
 This project follows a strict layered architecture designed for clarity,
 testability, performance, and long-term evolution.

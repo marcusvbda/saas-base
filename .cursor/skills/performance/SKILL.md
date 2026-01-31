@@ -1,3 +1,8 @@
+---
+name: performance
+description: Defines performance constraints for frontend rendering, backend execution, async processing, and database access. Use when implementing async jobs, caching, or optimizing performance.
+---
+
 # Performance & Async Processing
 
 Performance is a **first-class concern**.

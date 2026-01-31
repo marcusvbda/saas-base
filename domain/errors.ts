@@ -1,6 +1,6 @@
 /**
  * Domain error taxonomy. API Routes map these to HTTP status and safe messages.
- * @see .cursor/error-taxonomy.md
+ * @see .cursor/skills/error-taxonomy/SKILL.md
  */
 export class ValidationError extends Error {
 	readonly code = 'VALIDATION_ERROR';
