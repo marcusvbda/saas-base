@@ -1,10 +1,13 @@
 import Repository from '@/database/repository';
 
+export type ReportStatus = 'processing' | 'ready' | 'failed';
+
 export type DailyReport = {
 	id: number;
 	user_id: string;
 	report_date: string;
 	content: string;
+	status: ReportStatus;
 	created_at: string;
 	updated_at: string;
 };
@@ -12,11 +15,12 @@ export type DailyReport = {
 export type DailyReportInput = {
 	report_date: string;
 	content: string;
+	status?: ReportStatus;
 };
 
 export default class ReportsRepository extends Repository {
 	private readonly columns =
-		'`id`, `user_id`, `report_date`, `content`, `created_at`, `updated_at`';
+		'`id`, `user_id`, `report_date`, `content`, `status`, `created_at`, `updated_at`';
 
 	async findById(id: number): Promise<DailyReport | null> {
 		return this.findOne(
@@ -58,27 +62,41 @@ export default class ReportsRepository extends Repository {
 		userId: string,
 		data: DailyReportInput,
 	): Promise<number> {
+		const status = data.status ?? 'ready';
 		const existing = await this.findByUserAndDate(userId, data.report_date);
 		if (existing) {
 			await this.execute(
-				`UPDATE \`daily_reports\` SET \`content\` = :content, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
+				`UPDATE \`daily_reports\` SET \`content\` = :content, \`status\` = :status, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
 				{
 					id: existing.id,
 					userId,
 					content: data.content,
+					status,
 				},
 			);
 			return existing.id;
 		}
 		const result = (await this.execute(
-			`INSERT INTO \`daily_reports\` (\`user_id\`, \`report_date\`, \`content\`) VALUES (:userId, :reportDate, :content)`,
+			`INSERT INTO \`daily_reports\` (\`user_id\`, \`report_date\`, \`content\`, \`status\`) VALUES (:userId, :reportDate, :content, :status)`,
 			{
 				userId,
 				reportDate: data.report_date,
 				content: data.content,
+				status,
 			},
 		)) as { insertId?: number };
 		return result.insertId ?? 0;
+	}
+
+	async updateStatus(
+		userId: string,
+		id: number,
+		status: ReportStatus,
+	): Promise<void> {
+		await this.execute(
+			`UPDATE \`daily_reports\` SET \`status\` = :status, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
+			{ id, userId, status },
+		);
 	}
 
 	async updateContent(

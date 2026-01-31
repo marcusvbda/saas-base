@@ -77,6 +77,57 @@ function buildReportSections(
 	return lines.join('\n');
 }
 
+/** day (YYYY-MM-DD) -> project name -> branch name -> commit titles */
+type ReportByDayProjectBranch = Map<
+	string,
+	Map<string, Map<string, string[]>>
+>;
+
+function buildReportByDayProjectBranch(
+	labels: ReportLabels,
+	grouped: ReportByDayProjectBranch,
+	reportDate?: string,
+): string {
+	const days = Array.from(grouped.keys()).sort();
+	if (days.length === 0) {
+		const dayLabel =
+			reportDate === formatReportDate(new Date()) ? labels.today : reportDate ?? labels.today;
+		return `${dayLabel}\n- ${labels.noActivity}`;
+	}
+	const lines: string[] = [];
+	for (const day of days) {
+		const byProject = grouped.get(day)!;
+		const dayLabel = day === formatReportDate(new Date()) ? labels.today : day;
+		lines.push(dayLabel);
+		for (const [projectName, byBranch] of byProject) {
+			lines.push(`  ${projectName}`);
+			for (const [branchName, commits] of byBranch) {
+				lines.push(`    ${branchName}`);
+				for (const title of commits) {
+					lines.push(`    - ${title}`);
+				}
+			}
+		}
+		lines.push('');
+	}
+	return lines.join('\n').trimEnd();
+}
+
+function addToGrouped(
+	grouped: ReportByDayProjectBranch,
+	day: string,
+	projectName: string,
+	branchName: string,
+	title: string,
+): void {
+	if (!grouped.has(day)) grouped.set(day, new Map());
+	const byProject = grouped.get(day)!;
+	if (!byProject.has(projectName)) byProject.set(projectName, new Map());
+	const byBranch = byProject.get(projectName)!;
+	if (!byBranch.has(branchName)) byBranch.set(branchName, []);
+	byBranch.get(branchName)!.push(title);
+}
+
 /** project id (string) -> branch names to ignore */
 type IgnoredBranchesByProject = Record<string, string[]>;
 
@@ -98,107 +149,97 @@ async function fetchGitLabReportContent(
 	projectIds: number[] | null,
 	ignoredBranchesByProject: IgnoredBranchesByProject | null,
 ): Promise<string> {
-	const today = new Date(reportDate);
-	const yesterday = new Date(today);
-	yesterday.setDate(yesterday.getDate() - 1);
-	const yesterdayStart = yesterday.toISOString().slice(0, 10);
-	const yesterdayEnd = yesterday.toISOString().slice(0, 10);
-	const todayStart = today.toISOString().slice(0, 10);
+	const headers = { 'PRIVATE-TOKEN': token };
+	const grouped: ReportByDayProjectBranch = new Map();
 
-	const yesterdayItems: string[] = [];
-	const todayItems: string[] = [];
-	const blockers: string[] = [];
+	// Date range: day before reportDate and reportDate (both full days in UTC)
+	const reportDay = new Date(reportDate + 'T00:00:00.000Z');
+	const dayBefore = new Date(reportDay);
+	dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+	const since = dayBefore.toISOString().slice(0, 10) + 'T00:00:00.000Z';
+	const until = reportDate + 'T23:59:59.999Z';
 
 	try {
-		// Build project filter query parameter
-		const projectFilter =
-			projectIds && projectIds.length > 0
-				? projectIds.map((id) => `&project_id=${id}`).join('')
-				: '';
+		// Current user for filtering commits by author
+		const userRes = await fetch(`${baseUrl}/api/v4/user`, { headers });
+		if (!userRes.ok) {
+			return buildReportByDayProjectBranch(labels, grouped, reportDate);
+		}
+		const user = (await userRes.json()) as {
+			name: string;
+			username?: string;
+			email?: string;
+		};
+		const isAuthor = (authorName: string, authorEmail?: string) =>
+			authorName === user.name ||
+			(authorEmail != null && authorEmail === user.email);
 
-		// Merged MRs in the last 2 days (for yesterday)
-		const mergedRes = await fetch(
-			`${baseUrl}/api/v4/merge_requests?state=merged&scope=assigned_to_me&per_page=100${projectFilter}`,
-			{ headers: { 'PRIVATE-TOKEN': token } },
-		);
-		if (mergedRes.ok) {
-			const merged = (await mergedRes.json()) as Array<{
-				title: string;
-				iid: number;
-				merged_at: string | null;
-				state: string;
-				target_branch: string;
-				project_id: number;
-			}>;
-			for (const mr of merged) {
+		// Resolve project IDs to query
+		let ids = projectIds ?? [];
+		if (ids.length === 0) {
+			const projectsRes = await fetch(
+				`${baseUrl}/api/v4/projects?membership=true&per_page=100`,
+				{ headers },
+			);
+			if (!projectsRes.ok) {
+				return buildReportByDayProjectBranch(labels, grouped, reportDate);
+			}
+			const projects = (await projectsRes.json()) as Array<{ id: number }>;
+			ids = projects.map((p) => p.id);
+		}
+
+		for (const projectId of ids) {
+			const projectRes = await fetch(
+				`${baseUrl}/api/v4/projects/${encodeURIComponent(projectId)}`,
+				{ headers },
+			);
+			if (!projectRes.ok) continue;
+			const project = (await projectRes.json()) as {
+				name: string;
+				default_branch: string | null;
+			};
+			const projectName = project.name;
+
+			// List branches (per project) then commits per branch
+			const branchesRes = await fetch(
+				`${baseUrl}/api/v4/projects/${encodeURIComponent(projectId)}/repository/branches?per_page=50`,
+				{ headers },
+			);
+			if (!branchesRes.ok) continue;
+			const branches = (await branchesRes.json()) as Array<{ name: string }>;
+			for (const { name: branchName } of branches) {
 				if (
 					isBranchIgnoredForProject(
 						ignoredBranchesByProject,
-						mr.project_id,
-						mr.target_branch,
+						projectId,
+						branchName,
 					)
 				) {
 					continue;
 				}
-				const mergedAt = mr.merged_at?.slice(0, 10);
-				if (mergedAt === yesterdayEnd) {
-					yesterdayItems.push(`${labels.mergedPr} #${mr.iid} - ${mr.title}`);
+				const commitsRes = await fetch(
+					`${baseUrl}/api/v4/projects/${encodeURIComponent(projectId)}/repository/commits?ref_name=${encodeURIComponent(branchName)}&since=${encodeURIComponent(since)}&until=${encodeURIComponent(until)}&per_page=100`,
+					{ headers },
+				);
+				if (!commitsRes.ok) continue;
+				const commits = (await commitsRes.json()) as Array<{
+					title: string;
+					author_name: string;
+					author_email?: string;
+					committed_date: string;
+				}>;
+				for (const c of commits) {
+					if (!isAuthor(c.author_name, c.author_email)) continue;
+					const day = c.committed_date.slice(0, 10);
+					addToGrouped(grouped, day, projectName, branchName, c.title);
 				}
 			}
 		}
 
-		// Opened/updated MRs (for today)
-		const openedRes = await fetch(
-			`${baseUrl}/api/v4/merge_requests?state=opened&scope=assigned_to_me&per_page=100${projectFilter}`,
-			{ headers: { 'PRIVATE-TOKEN': token } },
-		);
-		if (openedRes.ok) {
-			const opened = (await openedRes.json()) as Array<{
-				title: string;
-				iid: number;
-				updated_at: string;
-				target_branch: string;
-				project_id: number;
-			}>;
-			for (const mr of opened) {
-				if (
-					isBranchIgnoredForProject(
-						ignoredBranchesByProject,
-						mr.project_id,
-						mr.target_branch,
-					)
-				) {
-					continue;
-				}
-				const updatedAt = mr.updated_at.slice(0, 10);
-				if (updatedAt === todayStart) {
-					todayItems.push(`${labels.reviewingPr} #${mr.iid} - ${mr.title}`);
-				}
-			}
-		}
-
-		// Issues assigned (for today / blockers)
-		const issuesRes = await fetch(
-			`${baseUrl}/api/v4/issues?scope=assigned_to_me&state=opened&per_page=50${projectFilter}`,
-			{ headers: { 'PRIVATE-TOKEN': token } },
-		);
-		if (issuesRes.ok) {
-			const issues = (await issuesRes.json()) as Array<{
-				title: string;
-				iid: number;
-				project_id: number;
-			}>;
-			for (const issue of issues.slice(0, 3)) {
-				todayItems.push(`${labels.workingOn}: "${issue.title}"`);
-			}
-		}
+		return buildReportByDayProjectBranch(labels, grouped, reportDate);
 	} catch {
-		// Fallback placeholder
-		yesterdayItems.push(labels.noActivitySynced);
-		todayItems.push(labels.noActivitySynced);
+		return buildReportByDayProjectBranch(labels, grouped, reportDate);
 	}
-
-	return buildReportSections(labels, yesterdayItems, todayItems, blockers);
 }
 
 export default class ReportsService {
@@ -251,6 +292,7 @@ export default class ReportsService {
 			await this.reportsRepo.upsert(userId, {
 				report_date: reportDate,
 				content,
+				status: 'ready',
 			});
 			this.triggerReportReady(userId, reportDate);
 			return { report_date: reportDate };
@@ -266,9 +308,36 @@ export default class ReportsService {
 			integration.projects,
 			integration.ignored_branches,
 		);
-		await this.reportsRepo.upsert(userId, { report_date: reportDate, content });
+		await this.reportsRepo.upsert(userId, {
+			report_date: reportDate,
+			content,
+			status: 'ready',
+		});
 		this.triggerReportReady(userId, reportDate);
 		return { report_date: reportDate };
+	}
+
+	async createReportProcessing(
+		userId: string,
+		reportDate: string,
+	): Promise<{ id: number; report_date: string; status: 'processing' }> {
+		const id = await this.reportsRepo.upsert(userId, {
+			report_date: reportDate,
+			content: '',
+			status: 'processing',
+		});
+		return { id, report_date: reportDate, status: 'processing' };
+	}
+
+	async setReportProcessing(
+		userId: string,
+		reportId: number,
+	): Promise<void> {
+		const report = await this.reportsRepo.findByIdForUser(userId, reportId);
+		if (!report) {
+			throw new NotFoundError('Report not found');
+		}
+		await this.reportsRepo.updateStatus(userId, reportId, 'processing');
 	}
 
 	async regenerateReport(payload: {
@@ -283,6 +352,7 @@ export default class ReportsService {
 		if (!report) {
 			throw new NotFoundError('Report not found');
 		}
+		// generateReport will upsert with status 'ready' and trigger Pusher
 		return this.generateReport({
 			userId: payload.userId,
 			reportDate: report.report_date,

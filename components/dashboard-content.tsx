@@ -46,6 +46,7 @@ type DailyReport = {
 	user_id: string;
 	report_date: string;
 	content: string;
+	status?: 'processing' | 'ready' | 'failed';
 	created_at: string;
 	updated_at: string;
 };
@@ -117,7 +118,10 @@ export default function DashboardContent() {
 			return json;
 		},
 		onSuccess: () => {
-			toast.success(t('Report is being generated. You can close this page.'));
+			queryClient.invalidateQueries({ queryKey: ['reports'] });
+			toast.success(
+				t('Report is being generated. You can close this page.'),
+			);
 		},
 		onError: (err: Error) => {
 			toast.error(err.message ? t(err.message) : t('Something went wrong'));
@@ -440,17 +444,28 @@ function ReportCard({
 }) {
 	const isEditing = editingId === report.id;
 	const isToday = report.report_date === todayISO();
+	const isProcessing = report.status === 'processing';
 
 	return (
 		<Card>
 			<CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-				<CardTitle className="text-base">
+				<CardTitle className="text-base flex items-center gap-2">
 					{isToday ? t("Today's Draft") : formatReportDate(report.report_date)}
+					{isProcessing && (
+						<span className="inline-flex items-center gap-1.5 text-muted-foreground font-normal text-sm">
+							<Loader2 className="h-4 w-4 animate-spin" />
+							{t('Processing…')}
+						</span>
+					)}
 				</CardTitle>
 				<div className="flex items-center gap-2">
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Button variant="outline" size="sm" disabled={updatePending}>
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={updatePending || isProcessing}
+							>
 								<Pencil className="mr-2 h-4 w-4" />
 								{t('Edit draft')}
 								<ChevronDown className="ml-2 h-4 w-4" />
@@ -461,10 +476,14 @@ function ReportCard({
 								onClick={() =>
 									isEditing ? onCancelEdit() : onStartEdit(report)
 								}
+								disabled={isProcessing}
 							>
 								{isEditing ? t('Cancel edit') : t('Edit draft')}
 							</DropdownMenuItem>
-							<DropdownMenuItem onClick={() => onCopy(report)}>
+							<DropdownMenuItem
+								onClick={() => onCopy(report)}
+								disabled={isProcessing}
+							>
 								<Copy className="mr-2 h-4 w-4" />
 								{t('Copy draft')}
 							</DropdownMenuItem>
@@ -474,7 +493,7 @@ function ReportCard({
 						variant="outline"
 						size="sm"
 						onClick={() => onCopy(report)}
-						disabled={updatePending}
+						disabled={updatePending || isProcessing}
 					>
 						<Copy className="mr-2 h-4 w-4" />
 						{t('Copy')}
@@ -483,7 +502,7 @@ function ReportCard({
 						variant="outline"
 						size="sm"
 						onClick={() => onRegenerate(report.id)}
-						disabled={regeneratePending}
+						disabled={regeneratePending || isProcessing}
 					>
 						{regeneratePending ? (
 							<Loader2 className="h-4 w-4 animate-spin" />
@@ -497,7 +516,7 @@ function ReportCard({
 							variant="outline"
 							size="sm"
 							onClick={() => onDelete(report.id)}
-							disabled={deletePending}
+							disabled={deletePending || isProcessing}
 							className="text-destructive hover:text-destructive"
 						>
 							{deletePending ? (
@@ -511,7 +530,16 @@ function ReportCard({
 				</div>
 			</CardHeader>
 			<CardContent>
-				{isEditing ? (
+				{isProcessing ? (
+					<div className="flex items-center gap-3 text-muted-foreground bg-muted/50 p-4 rounded-md">
+						<Loader2 className="h-5 w-5 animate-spin shrink-0" />
+						<p className="text-sm">
+							{t(
+								'Report is being generated. You can close this page; the card will update when ready.',
+							)}
+						</p>
+					</div>
+				) : isEditing ? (
 					<div className="space-y-2">
 						<Textarea
 							value={editedContent}

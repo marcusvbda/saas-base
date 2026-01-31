@@ -81,13 +81,22 @@ export async function POST(request: NextRequest) {
 			if (action === 'generate') {
 				const reportDate = (json.report_date as string) || formatReportDate(new Date());
 				const locale = typeof json.locale === 'string' ? json.locale : undefined;
+				const service = new ReportsService();
+				const report = await service.createReportProcessing(
+					session.user.id,
+					reportDate,
+				);
 				await publishJson({
 					service: 'ReportsService',
 					action: 'generateReport',
 					payload: { userId: session.user.id, reportDate, locale },
 				});
 				return NextResponse.json({
-					data: { success: true, message: 'Report generation started' },
+					data: {
+						id: report.id,
+						report_date: report.report_date,
+						status: report.status,
+					},
 				});
 			}
 			if (action === 'regenerate') {
@@ -99,13 +108,15 @@ export async function POST(request: NextRequest) {
 					);
 				}
 				const locale = typeof json.locale === 'string' ? json.locale : undefined;
+				const service = new ReportsService();
+				await service.setReportProcessing(session.user.id, reportId);
 				await publishJson({
 					service: 'ReportsService',
 					action: 'regenerateReport',
 					payload: { userId: session.user.id, reportId, locale },
 				});
 				return NextResponse.json({
-					data: { success: true, message: 'Report regeneration started' },
+					data: { report_id: reportId, status: 'processing' as const },
 				});
 			}
 			return NextResponse.json(
