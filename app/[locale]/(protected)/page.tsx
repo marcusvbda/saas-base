@@ -1,18 +1,7 @@
 'use client';
-import BasePage from './base-page';
-import { useLocale } from '@/hooks/use-locale';
-import PlanGate from '@/components/plan-gate';
+
+import DashboardContent from '@/components/dashboard-content';
 
 export default function DashboardPage() {
-	const { t } = useLocale();
-
-	return (
-		<BasePage
-			breadcrumbItems={[{ title: 'Dashboard' }]}
-			title={t('Dashboard')}
-			description={t('Welcome to the dashboard')}
-		>
-			<PlanGate allowedPlans={['pro']}>TEST PLAN GATE </PlanGate>
-		</BasePage>
-	);
+	return <DashboardContent />;
 }

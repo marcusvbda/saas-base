@@ -4,9 +4,8 @@ const integrations = {
 	'Repository Provider': 'Provedor de Repositório',
 	Provider: 'Provedor',
 	'Select a provider': 'Selecione um provedor',
-	'Repository providers': 'Provedores de repositório',
-	'Connect your code hosting providers to automatically use data from your repositories.':
-		'Conecte seus provedores de código para usar automaticamente os dados dos seus repositórios.',
+	'Connect your code hosting provider to automatically use data from your repositories.':
+		'Conecte seu provedor de repositório para usar automaticamente os dados dos seus repositórios.',
 	'Add integration': 'Adicionar integração',
 	'No integrations yet': 'Nenhuma integração ainda',
 	'Start by adding a GitLab integration to connect your repositories.':
@@ -42,6 +41,34 @@ const integrations = {
 	'Are you sure you want to {action}?': 'Tem certeza de que deseja {action}?',
 	delete: 'excluir',
 	'Token is required': 'Token é obrigatório',
+	'Report Configuration': 'Configuração de Relatórios',
+	'Select projects and branches to monitor':
+		'Selecione projetos e branches para monitorar',
+	Hide: 'Ocultar',
+	Configure: 'Configurar',
+	'Projects to monitor': 'Projetos para monitorar',
+	'Loading projects...': 'Carregando projetos...',
+	'No projects found': 'Nenhum projeto encontrado',
+	'Branches to ignore in reports': 'Branches para ignorar nos relatórios',
+	'Loading branches...': 'Carregando branches...',
+	'No branches found': 'Nenhuma branch encontrada',
+	Reset: 'Resetar',
+	Save: 'Salvar',
+	'Saving...': 'Salvando...',
+	'Configuration saved successfully': 'Configuração salva com sucesso',
+	selected: 'selecionado(s)',
+	'Filter projects...': 'Filtrar projetos...',
+	'No projects found matching filter':
+		'Nenhum projeto encontrado com este filtro',
+	'Filter branches...': 'Filtrar branches...',
+	'Search branches (min 2 characters)...':
+		'Buscar branches (mín. 2 caracteres)...',
+	'Type at least 2 characters to search branches':
+		'Digite pelo menos 2 caracteres para buscar branches',
+	'Selected branches to ignore': 'Branches selecionadas para ignorar',
+	'No branches found matching filter':
+		'Nenhuma branch encontrada com este filtro',
+	ignored: 'ignorada(s)',
 };
 
 export default integrations;

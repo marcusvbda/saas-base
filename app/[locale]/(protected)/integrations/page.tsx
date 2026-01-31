@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useQueryState } from '@/hooks/use-query-state';
 import IntegrationsSidebar from '@/components/integrations-sidebar';
 import RepositoryProvider from '@/components/repository-provider';
-
+import { Activity } from 'react';
 export const SettingsSections = ['repository-provider'];
 export type ISettingsSection = (typeof SettingsSections)[number];
 
@@ -36,7 +36,13 @@ export default function IntegrationsPage() {
 				/>
 				<Card className="w-full space-y-1">
 					<CardContent>
-						{activeSection === 'repository-provider' && <RepositoryProvider />}
+						<Activity
+							mode={
+								activeSection === 'repository-provider' ? 'visible' : 'hidden'
+							}
+						>
+							<RepositoryProvider />
+						</Activity>
 					</CardContent>
 				</Card>
 			</div>

@@ -1,6 +1,8 @@
 const services: Record<string, () => Promise<{ new (): unknown }>> = {
 	IntegrationsService: async () =>
 		(await import('@/domain/integrations/integrations.service')).default,
+	ReportsService: async () =>
+		(await import('@/domain/reports/reports.service')).default,
 };
 
 export const executeServiceAction = async (

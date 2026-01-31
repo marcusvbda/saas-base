@@ -4,16 +4,27 @@ import IntegrationsService from '@/domain/integrations/integrations.service';
 import { domainErrorToNextResponse } from '@/lib/domain-error-to-http';
 import { publishJson } from '@/lib/qstash';
 import { z } from 'zod';
+import { RepositoryIntegrationType } from '@/domain/integrations/integrations.repository';
 
 const bodySchema = z.object({
 	provider: z.enum(['gitlab']),
 	token: z.string().min(1),
+	projects: z.array(z.number()).optional().nullable(),
+	ignored_branches: z
+		.record(z.string(), z.array(z.string()))
+		.optional()
+		.nullable(),
 });
 
-export async function GET() {
+export async function GET(request: NextRequest) {
 	return requireServerAuth(async ({ session }) => {
+		const { searchParams } = new URL(request.url);
+		const type = searchParams.get('type') as 'repository' | null;
 		const service = new IntegrationsService();
-		const items = await service.listUserIntegrations(session.user.id);
+		const items = await service.listUserIntegrationsByType(
+			session.user.id,
+			type as RepositoryIntegrationType,
+		);
 		return NextResponse.json(items);
 	});
 }
@@ -67,9 +78,9 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
-			const { provider, token } = parsed.data;
+			const { provider, token, projects, ignored_branches } = parsed.data;
 
-			if (!provider && !token) {
+			if (!provider && !token && !projects && !ignored_branches) {
 				return NextResponse.json(
 					{ error: { message: 'Nothing to update' } },
 					{ status: 400 },
@@ -77,16 +88,26 @@ export async function PUT(request: NextRequest) {
 			}
 
 			const service = new IntegrationsService();
-			await service.updateIntegration(session.user.id, id, {
-				provider,
-				token,
-				status: 'pending',
-			});
-			await publishJson({
-				service: 'IntegrationsService',
-				action: 'validateTokenStatus',
-				payload: { id },
-			});
+			const updateData: any = {};
+			if (provider !== undefined) updateData.provider = provider;
+			if (token !== undefined) {
+				updateData.token = token;
+				updateData.status = 'pending';
+			}
+			if (projects !== undefined) updateData.projects = projects;
+			if (ignored_branches !== undefined)
+				updateData.ignored_branches = ignored_branches;
+
+			await service.updateIntegration(session.user.id, id, updateData);
+
+			// Only trigger validation if token was changed
+			if (token) {
+				await publishJson({
+					service: 'IntegrationsService',
+					action: 'validateTokenStatus',
+					payload: { id },
+				});
+			}
 
 			return NextResponse.json({ data: { success: true } });
 		} catch (error) {
