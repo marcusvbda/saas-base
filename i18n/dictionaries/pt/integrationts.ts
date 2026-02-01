@@ -69,6 +69,47 @@ const integrations = {
 	'No branches found matching filter':
 		'Nenhuma branch encontrada com este filtro',
 	ignored: 'ignorada(s)',
+	// Task Manager (Notion)
+	'Task Manager': 'Gerenciador de Tarefas',
+	'Connect a task manager to sync and manage tasks from your workspace.':
+		'Conecte um gerenciador de tarefas para sincronizar e gerenciar tarefas do seu workspace.',
+	'No task manager integration yet': 'Nenhuma integração de gerenciador de tarefas',
+	'Add a Notion integration to connect your task manager.':
+		'Adicione uma integração Notion para conectar seu gerenciador de tarefas.',
+	'Add Notion integration': 'Adicionar integração Notion',
+	'Edit Notion integration': 'Editar integração Notion',
+	'Paste your Notion internal integration token':
+		'Cole seu token de integração interna do Notion',
+	'We only store this token securely to sync with your Notion workspace.':
+		'Armazenamos esse token com segurança apenas para sincronizar com seu workspace Notion.',
+	'Notion workspace': 'Workspace Notion',
+	'Update your Notion internal integration token if needed':
+		'Atualize seu token de integração interna do Notion se necessário',
+	'Internal integration token': 'Token de integração interna',
+	'Paste new token to update': 'Cole o novo token para atualizar',
+	'Credentials updated successfully': 'Credenciais atualizadas com sucesso',
+	// Communication Provider (Slack)
+	'Communication Provider': 'Provedor de Comunicação',
+	'Connect a communication provider to receive notifications and updates.':
+		'Conecte um provedor de comunicação para receber notificações e atualizações.',
+	'No communication provider yet': 'Nenhum provedor de comunicação',
+	'Add a Slack integration to connect your communication channel.':
+		'Adicione uma integração Slack para conectar seu canal de comunicação.',
+	'Add Slack integration': 'Adicionar integração Slack',
+	'Edit Slack integration': 'Editar integração Slack',
+	'Paste your Slack bot or user OAuth token':
+		'Cole seu token OAuth de bot ou usuário do Slack',
+	'We only store this token securely to send notifications to your Slack workspace.':
+		'Armazenamos esse token com segurança apenas para enviar notificações ao seu workspace Slack.',
+	'Slack workspace': 'Workspace Slack',
+	'Update your Slack OAuth token if needed':
+		'Atualize seu token OAuth do Slack se necessário',
+	'Bot or user OAuth token': 'Token OAuth de bot ou usuário',
+	// Conflict messages (single instance)
+	'Task manager integration already exists':
+		'Já existe uma integração de gerenciador de tarefas',
+	'Communication provider integration already exists':
+		'Já existe uma integração de provedor de comunicação',
 };
 
 export default integrations;

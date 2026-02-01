@@ -7,7 +7,10 @@ import { z } from 'zod';
 import { RepositoryIntegrationType } from '@/domain/integrations/integrations.repository';
 
 const bodySchema = z.object({
-	provider: z.enum(['gitlab']),
+	provider: z.enum(['gitlab', 'notion', 'slack']),
+	type: z
+		.enum(['repository', 'task_manager', 'communication_provider'])
+		.optional(),
 	token: z.string().min(1),
 	projects: z.array(z.number()).optional().nullable(),
 	ignored_branches: z
@@ -16,14 +19,26 @@ const bodySchema = z.object({
 		.nullable(),
 });
 
+const PROVIDER_TYPE_MAP: Record<string, RepositoryIntegrationType> = {
+	gitlab: 'repository',
+	notion: 'task_manager',
+	slack: 'communication_provider',
+};
+
 export async function GET(request: NextRequest) {
 	return requireServerAuth(async ({ session }) => {
 		const { searchParams } = new URL(request.url);
-		const type = searchParams.get('type') as 'repository' | null;
+		const type = searchParams.get('type') as RepositoryIntegrationType | null;
+		if (!type) {
+			return NextResponse.json(
+				{ error: { message: 'Missing type' } },
+				{ status: 400 },
+			);
+		}
 		const service = new IntegrationsService();
 		const items = await service.listUserIntegrationsByType(
 			session.user.id,
-			type as RepositoryIntegrationType,
+			type,
 		);
 		return NextResponse.json(items);
 	});
@@ -40,10 +55,26 @@ export async function POST(request: NextRequest) {
 					{ status: 400 },
 				);
 			}
+			const expectedType = PROVIDER_TYPE_MAP[parsed.data.provider];
+			const type =
+				(parsed.data.type as RepositoryIntegrationType) ?? expectedType;
+			if (type !== expectedType) {
+				return NextResponse.json(
+					{ error: { message: 'Invalid provider and type combination' } },
+					{ status: 400 },
+				);
+			}
+			const createData = {
+				provider: parsed.data.provider,
+				type,
+				token: parsed.data.token,
+				projects: parsed.data.projects,
+				ignored_branches: parsed.data.ignored_branches,
+			};
 			const service = new IntegrationsService();
 			const { id } = await service.createIntegration(
 				session.user.id,
-				parsed.data,
+				createData,
 			);
 			await publishJson({
 				service: 'IntegrationsService',

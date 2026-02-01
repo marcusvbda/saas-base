@@ -2,11 +2,11 @@
 
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './ui/card';
-import { ISettingsSection } from '@/app/[locale]/(protected)/settings/page';
 import { useLocale } from '@/hooks/use-locale';
-import { GitBranchIcon } from 'lucide-react';
+import { GitBranchIcon, FileTextIcon, MessageSquareIcon } from 'lucide-react';
+import type { ISettingsSection } from '@/app/[locale]/(protected)/integrations/page';
 
-interface SettingsSidebarProps {
+interface IntegrationsSidebarProps {
 	activeSection: ISettingsSection;
 	onSectionChange: (section: ISettingsSection) => void;
 }
@@ -14,7 +14,7 @@ interface SettingsSidebarProps {
 export default function IntegrationsSidebar({
 	activeSection,
 	onSectionChange,
-}: SettingsSidebarProps) {
+}: IntegrationsSidebarProps) {
 	const { t } = useLocale();
 	const sections: Array<{
 		id: ISettingsSection;
@@ -25,6 +25,16 @@ export default function IntegrationsSidebar({
 			id: 'repository-provider',
 			label: t('Repository Provider'),
 			icon: GitBranchIcon,
+		},
+		{
+			id: 'task-manager',
+			label: t('Task Manager'),
+			icon: FileTextIcon,
+		},
+		{
+			id: 'communication-provider',
+			label: t('Communication Provider'),
+			icon: MessageSquareIcon,
 		},
 	];
 

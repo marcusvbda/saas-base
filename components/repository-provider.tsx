@@ -66,7 +66,7 @@ export default function RepositoryProvider() {
 	const [token, setToken] = useState('');
 	const [provider, setProvider] = useState<'gitlab'>('gitlab');
 	const { data, isLoading } = useQuery({
-		queryKey: ['integrations'],
+		queryKey: ['integrations', 'repository'],
 		queryFn: () =>
 			fetch('/api/integrations?type=repository').then((res) => res.json()),
 	});
@@ -86,7 +86,7 @@ export default function RepositoryProvider() {
 			return json;
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['integrations'] });
+			queryClient.invalidateQueries({ queryKey: ['integrations', 'repository'] });
 			toast.success(t('Integration created successfully'));
 			setToken('');
 			setIsDrawerOpen(false);
@@ -110,7 +110,7 @@ export default function RepositoryProvider() {
 			return json;
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['integrations'] });
+			queryClient.invalidateQueries({ queryKey: ['integrations', 'repository'] });
 			toast.success(t('Integration updated successfully'));
 			setToken('');
 			setIsDrawerOpen(false);
@@ -134,7 +134,7 @@ export default function RepositoryProvider() {
 			return json;
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['integrations'] });
+			queryClient.invalidateQueries({ queryKey: ['integrations', 'repository'] });
 			toast.success(t('Integration deleted successfully'));
 			setIsDrawerOpen(false);
 		},
@@ -449,7 +449,7 @@ const IntegrationConfig = ({ integration }: { integration: Integration }) => {
 			return json;
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['integrations'] });
+			queryClient.invalidateQueries({ queryKey: ['integrations', 'repository'] });
 			toast.success(t('Configuration saved successfully'));
 		},
 		onError: (error: Error) => {

@@ -35,7 +35,10 @@ export function domainErrorToHttp(error: unknown): HttpErrorResponse {
 		return { status: 404, body: { error: { message: 'Not found' } } };
 	}
 	if (error instanceof ConflictError) {
-		return { status: 409, body: { error: { message: 'Conflict' } } };
+		return {
+			status: 409,
+			body: { error: { message: error.message || 'Conflict' } },
+		};
 	}
 	if (error instanceof BusinessRuleError) {
 		return { status: 400, body: { error: { message: error.message } } };

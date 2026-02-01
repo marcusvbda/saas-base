@@ -6,8 +6,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useQueryState } from '@/hooks/use-query-state';
 import IntegrationsSidebar from '@/components/integrations-sidebar';
 import RepositoryProvider from '@/components/repository-provider';
+import TaskManagerProvider from '@/components/task-manager-provider';
+import CommunicationProvider from '@/components/communication-provider';
 import { Activity } from 'react';
-export const SettingsSections = ['repository-provider'];
+export const SettingsSections = [
+	'repository-provider',
+	'task-manager',
+	'communication-provider',
+];
 export type ISettingsSection = (typeof SettingsSections)[number];
 
 export default function IntegrationsPage() {
@@ -42,6 +48,20 @@ export default function IntegrationsPage() {
 							}
 						>
 							<RepositoryProvider />
+						</Activity>
+						<Activity
+							mode={activeSection === 'task-manager' ? 'visible' : 'hidden'}
+						>
+							<TaskManagerProvider />
+						</Activity>
+						<Activity
+							mode={
+								activeSection === 'communication-provider'
+									? 'visible'
+									: 'hidden'
+							}
+						>
+							<CommunicationProvider />
 						</Activity>
 					</CardContent>
 				</Card>

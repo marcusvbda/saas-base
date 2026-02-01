@@ -5,7 +5,10 @@ export type RepositoryIntegrationStatus =
 	| 'connected'
 	| 'disconnected';
 
-export type RepositoryIntegrationType = 'repository';
+export type RepositoryIntegrationType =
+	| 'repository'
+	| 'task_manager'
+	| 'communication_provider';
 
 /** project id (string) -> branch names to ignore */
 export type IgnoredBranchesByProject = Record<string, string[]>;

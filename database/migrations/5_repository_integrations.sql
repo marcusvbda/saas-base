@@ -5,6 +5,8 @@ create table `repository_integrations` (
   `type` varchar(50) not null default 'repository',
   `token` text not null,
   `status` varchar(50) not null default 'pending',
+  `projects` json null comment 'Array of project IDs to include in reports',
+  `ignored_branches` json null comment 'Per-project branch names to ignore in reports',
   `created_at` datetime not null default current_timestamp,
   `updated_at` datetime not null default current_timestamp on update current_timestamp,
   foreign key (`user_id`) references `user`(`id`) on delete cascade
