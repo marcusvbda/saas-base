@@ -7,10 +7,8 @@ import { z } from 'zod';
 import { RepositoryIntegrationType } from '@/domain/integrations/integrations.repository';
 
 const bodySchema = z.object({
-	provider: z.enum(['gitlab', 'notion', 'slack']),
-	type: z
-		.enum(['repository', 'task_manager', 'communication_provider'])
-		.optional(),
+	provider: z.enum(['gitlab']),
+	type: z.literal('repository').optional(),
 	token: z.string().min(1),
 	projects: z.array(z.number()).optional().nullable(),
 	ignored_branches: z
@@ -21,8 +19,6 @@ const bodySchema = z.object({
 
 const PROVIDER_TYPE_MAP: Record<string, RepositoryIntegrationType> = {
 	gitlab: 'repository',
-	notion: 'task_manager',
-	slack: 'communication_provider',
 };
 
 export async function GET(request: NextRequest) {
@@ -111,7 +107,7 @@ export async function PUT(request: NextRequest) {
 
 			const { provider, token, projects, ignored_branches } = parsed.data;
 
-			if (!provider && !token && !projects && !ignored_branches) {
+			if (!provider && token === undefined && !projects && !ignored_branches) {
 				return NextResponse.json(
 					{ error: { message: 'Nothing to update' } },
 					{ status: 400 },
@@ -119,7 +115,7 @@ export async function PUT(request: NextRequest) {
 			}
 
 			const service = new IntegrationsService();
-			const updateData: any = {};
+			const updateData: Record<string, unknown> = {};
 			if (provider !== undefined) updateData.provider = provider;
 			if (token !== undefined) {
 				updateData.token = token;
@@ -131,7 +127,6 @@ export async function PUT(request: NextRequest) {
 
 			await service.updateIntegration(session.user.id, id, updateData);
 
-			// Only trigger validation if token was changed
 			if (token) {
 				await publishJson({
 					service: 'IntegrationsService',

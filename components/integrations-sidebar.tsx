@@ -3,16 +3,16 @@
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './ui/card';
 import { useLocale } from '@/hooks/use-locale';
-import { GitBranchIcon, FileTextIcon, MessageSquareIcon } from 'lucide-react';
+import { GitBranchIcon } from 'lucide-react';
 import type { ISettingsSection } from '@/app/[locale]/(protected)/integrations/page';
 
 interface IntegrationsSidebarProps {
-	activeSection: ISettingsSection;
-	onSectionChange: (section: ISettingsSection) => void;
+	activeSection?: ISettingsSection;
+	onSectionChange?: (section: ISettingsSection) => void;
 }
 
 export default function IntegrationsSidebar({
-	activeSection,
+	activeSection = 'repository-provider',
 	onSectionChange,
 }: IntegrationsSidebarProps) {
 	const { t } = useLocale();
@@ -26,16 +26,6 @@ export default function IntegrationsSidebar({
 			label: t('Repository Provider'),
 			icon: GitBranchIcon,
 		},
-		{
-			id: 'task-manager',
-			label: t('Task Manager'),
-			icon: FileTextIcon,
-		},
-		{
-			id: 'communication-provider',
-			label: t('Communication Provider'),
-			icon: MessageSquareIcon,
-		},
 	];
 
 	return (
@@ -47,7 +37,7 @@ export default function IntegrationsSidebar({
 					return (
 						<button
 							key={section.id}
-							onClick={() => onSectionChange(section.id)}
+							onClick={() => onSectionChange?.(section.id)}
 							className={cn(
 								'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
 								isActive

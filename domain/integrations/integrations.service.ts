@@ -1,15 +1,10 @@
 import { pusher } from '@/lib/pusher';
-import { ConflictError, NotFoundError } from '@/domain/errors';
+import { NotFoundError } from '@/domain/errors';
 import IntegrationsRepository, {
 	RepositoryIntegration,
 	RepositoryIntegrationInput,
 	RepositoryIntegrationType,
 } from './integrations.repository';
-
-const SINGLE_INSTANCE_TYPES: RepositoryIntegrationType[] = [
-	'task_manager',
-	'communication_provider',
-];
 
 export default class IntegrationsService {
 	constructor(
@@ -32,19 +27,6 @@ export default class IntegrationsService {
 		data: RepositoryIntegrationInput,
 	): Promise<{ id: number }> {
 		const type = (data.type ?? 'repository') as RepositoryIntegrationType;
-		if (SINGLE_INSTANCE_TYPES.includes(type)) {
-			const existing = await this.repository.findAllByUserIdAndType(
-				userId,
-				type,
-			);
-			if (existing.length > 0) {
-				throw new ConflictError(
-					type === 'task_manager'
-						? 'Task manager integration already exists'
-						: 'Communication provider integration already exists',
-				);
-			}
-		}
 		const id = await this.repository.create(userId, data);
 		return { id };
 	}
@@ -79,21 +61,11 @@ export default class IntegrationsService {
 			status = (await this.validateGitLabToken(integration.token))
 				? 'connected'
 				: 'disconnected';
-		} else if (integration.provider === 'notion') {
-			status = (await this.validateNotionToken(integration.token))
-				? 'connected'
-				: 'disconnected';
-		} else if (integration.provider === 'slack') {
-			status = (await this.validateSlackToken(integration.token))
-				? 'connected'
-				: 'disconnected';
 		}
 
-		await this.repository.update(
-			integration.id,
-			integration.user_id,
-			{ status },
-		);
+		await this.repository.update(integration.id, integration.user_id, {
+			status,
+		});
 
 		pusher.trigger(
 			`integration-${integration.id}`,
@@ -109,33 +81,6 @@ export default class IntegrationsService {
 				headers: { 'PRIVATE-TOKEN': token },
 			});
 			return res.ok;
-		} catch {
-			return false;
-		}
-	}
-
-	private async validateNotionToken(token: string): Promise<boolean> {
-		try {
-			const res = await fetch('https://api.notion.com/v1/users/me', {
-				headers: {
-					Authorization: `Bearer ${token}`,
-					'Notion-Version': '2022-06-28',
-				},
-			});
-			return res.ok;
-		} catch {
-			return false;
-		}
-	}
-
-	private async validateSlackToken(token: string): Promise<boolean> {
-		try {
-			const res = await fetch('https://slack.com/api/auth.test', {
-				headers: { Authorization: `Bearer ${token}` },
-			});
-			if (!res.ok) return false;
-			const json = (await res.json()) as { ok?: boolean };
-			return json.ok === true;
 		} catch {
 			return false;
 		}
