@@ -86,7 +86,9 @@ export default function RepositoryProvider() {
 			return json;
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['integrations', 'repository'] });
+			queryClient.invalidateQueries({
+				queryKey: ['integrations', 'repository'],
+			});
 			toast.success(t('Integration created successfully'));
 			setToken('');
 			setIsDrawerOpen(false);
@@ -110,7 +112,9 @@ export default function RepositoryProvider() {
 			return json;
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['integrations', 'repository'] });
+			queryClient.invalidateQueries({
+				queryKey: ['integrations', 'repository'],
+			});
 			toast.success(t('Integration updated successfully'));
 			setToken('');
 			setIsDrawerOpen(false);
@@ -134,7 +138,9 @@ export default function RepositoryProvider() {
 			return json;
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['integrations', 'repository'] });
+			queryClient.invalidateQueries({
+				queryKey: ['integrations', 'repository'],
+			});
 			toast.success(t('Integration deleted successfully'));
 			setIsDrawerOpen(false);
 		},
@@ -329,6 +335,8 @@ export const IntegrationCard = ({
 	integration: Integration;
 	onClick: () => void;
 }) => {
+	const queryClient = useQueryClient();
+
 	const statusLabel = (status: IntegrationStatus) => {
 		if (status === 'connected') return t('Connected');
 		if (status === 'disconnected') return t('Disconnected');
@@ -356,6 +364,16 @@ export const IntegrationCard = ({
 			channelName={`integration-${integration.id}`}
 			initialData={{
 				status: integration.status,
+			}}
+			onChange={(data: any) => {
+				queryClient.setQueryData(['integrations', 'repository'], (old: any) => {
+					return old.map((item: any) => {
+						if (item.id === integration.id) {
+							return { ...item, status: data.status };
+						}
+						return item;
+					});
+				});
 			}}
 			render={(data: any) => {
 				return (
@@ -449,7 +467,9 @@ const IntegrationConfig = ({ integration }: { integration: Integration }) => {
 			return json;
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['integrations', 'repository'] });
+			queryClient.invalidateQueries({
+				queryKey: ['integrations', 'repository'],
+			});
 			toast.success(t('Configuration saved successfully'));
 		},
 		onError: (error: Error) => {

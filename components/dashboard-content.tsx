@@ -13,6 +13,7 @@ import {
 	Loader2,
 	Trash2,
 	Sparkles,
+	Lock,
 } from 'lucide-react';
 import PlanGate from '@/components/plan-gate';
 import { useLocale } from '@/hooks/use-locale';
@@ -29,6 +30,11 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import Loading from '@/components/loading';
@@ -48,6 +54,7 @@ type DailyReport = {
 	id: number;
 	user_id: string;
 	report_date: string;
+	from_date?: string | null;
 	content: string;
 	status?: 'processing' | 'ready' | 'failed';
 	enhanced_at?: string | null;
@@ -86,6 +93,12 @@ function todayISO(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
+function yesterdayISO(): string {
+	const d = new Date();
+	d.setDate(d.getDate() - 1);
+	return d.toISOString().slice(0, 10);
+}
+
 function useReportReadySubscription(userId: string | undefined) {
 	const queryClient = useQueryClient();
 	useEffect(() => {
@@ -112,6 +125,9 @@ export default function DashboardContent() {
 	const userId = session?.user?.id;
 	const queryClient = useQueryClient();
 
+	const [fromDate, setFromDate] = useState(yesterdayISO);
+	const [toDate, setToDate] = useState(todayISO);
+
 	const { data: integrations = [], isLoading: integrationsLoading } = useQuery({
 		queryKey: ['integrations', 'repository'],
 		queryFn: () =>
@@ -130,7 +146,12 @@ export default function DashboardContent() {
 			const res = await fetch('/api/reports', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: 'generate', locale }),
+				body: JSON.stringify({
+					action: 'generate',
+					from_date: fromDate,
+					to_date: toDate,
+					locale,
+				}),
 			});
 			const json = await res.json();
 			if (!res.ok || json.error) {
@@ -400,36 +421,92 @@ export default function DashboardContent() {
 					</div>
 				</section>
 
-				{/* Today's Draft & Reports */}
+				{/* Generate report (date range) & Reports list */}
 				<section className="space-y-4">
 					<h2 className="text-lg font-semibold">{t("Today's Draft")}</h2>
+
+					{!todayReport && (
+						<Card>
+							<CardContent>
+								<p className="text-muted-foreground text-sm mb-4">
+									{t(
+										'Generate a report for a period. Choose the start date (From) and end date (To).',
+									)}
+								</p>
+								<div className="flex flex-wrap items-end gap-4">
+									<div className="flex flex-col gap-1.5">
+										<label
+											htmlFor="report-from-date"
+											className="text-sm font-medium"
+										>
+											{t('From')}
+										</label>
+										<input
+											id="report-from-date"
+											type="date"
+											value={fromDate}
+											onChange={(e) => setFromDate(e.target.value.slice(0, 10))}
+											className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+										/>
+									</div>
+									<div className="flex flex-col gap-1.5">
+										<label
+											htmlFor="report-to-date"
+											className="text-sm font-medium"
+										>
+											{t('To')}
+										</label>
+										<input
+											id="report-to-date"
+											type="date"
+											value={toDate}
+											onChange={(e) => setToDate(e.target.value.slice(0, 10))}
+											className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+										/>
+									</div>
+									<Button
+										onClick={() => generateMutation.mutate()}
+										disabled={generateMutation.isPending}
+									>
+										{generateMutation.isPending ? (
+											<>
+												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+												{t('Generating…')}
+											</>
+										) : (
+											<>
+												<FileText className="mr-2 h-4 w-4" />
+												{t('Generate report')}
+											</>
+										)}
+									</Button>
+								</div>
+							</CardContent>
+						</Card>
+					)}
+
+					{todayReport && (
+						<Card className="bg-muted/50">
+							<CardContent>
+								<p className="text-muted-foreground text-sm">
+									{t(
+										"You already have today's report. Use Regenerate or Delete on the card below to create a new one.",
+									)}
+								</p>
+							</CardContent>
+						</Card>
+					)}
 
 					{reportsLoading && <Loading />}
 
 					{!reportsLoading && !todayReport && (
 						<Card>
 							<CardContent>
-								<p className="text-muted-foreground text-sm mb-4">
+								<p className="text-muted-foreground text-sm">
 									{t(
-										"You don't have a report for today yet. Generate one to get started.",
+										"You don't have a report for today yet. Use the form above to generate one for a period (e.g. from yesterday to today).",
 									)}
 								</p>
-								<Button
-									onClick={() => generateMutation.mutate()}
-									disabled={generateMutation.isPending}
-								>
-									{generateMutation.isPending ? (
-										<>
-											<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-											{t('Generating…')}
-										</>
-									) : (
-										<>
-											<FileText className="mr-2 h-4 w-4" />
-											{t('Generate report')}
-										</>
-									)}
-								</Button>
 							</CardContent>
 						</Card>
 					)}
@@ -447,7 +524,7 @@ export default function DashboardContent() {
 							onContentChange={setEditedContent}
 							onCopy={handleCopy}
 							onRegenerate={handleRegenerate}
-							onDelete={undefined}
+							onDelete={handleDelete}
 							updatePending={updateContentMutation.isPending}
 							regeneratePending={regenerateMutation.isPending}
 							enhancePending={enhanceMutation.isPending}
@@ -528,7 +605,7 @@ function ReportCard({
 	regeneratePending: boolean;
 	enhancePending: boolean;
 	deletePending: boolean;
-	t: (key: string) => string;
+	t: (key: string, params?: Record<string, string>) => string;
 }) {
 	const isEditing = editingId === report.id;
 	const isToday = reportDateOnly(report.report_date) === todayISO();
@@ -547,7 +624,14 @@ function ReportCard({
 				<CardTitle className="text-base flex items-center gap-2 flex-wrap">
 					{isToday
 						? t("Today's Draft")
-						: formatReportDate(report.report_date, locale)}
+						: report.from_date &&
+							  reportDateOnly(report.from_date) !==
+									reportDateOnly(report.report_date)
+							? t('From {from} to {to}', {
+									from: formatReportDate(report.from_date, locale),
+									to: formatReportDate(report.report_date, locale),
+								})
+							: formatReportDate(report.report_date, locale)}
 					{isProcessing && (
 						<span className="inline-flex items-center gap-1.5 text-muted-foreground font-normal text-sm">
 							<Loader2 className="h-4 w-4 animate-spin" />
@@ -604,16 +688,19 @@ function ReportCard({
 					<PlanGate
 						allowedPlans={['pro']}
 						fallback={
-							<Button
-								variant="outline"
-								size="sm"
-								disabled
-								className="opacity-70"
-								title={t('Enhance with AI (Pro)')}
-							>
-								<Sparkles className="h-4 w-4" />
-								<span className="sr-only">{t('Enhance with AI (Pro)')}</span>
-							</Button>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Lock className="size-4 mx-4" />
+								</TooltipTrigger>
+								<TooltipContent side="bottom" className="max-w-xs text-center">
+									<p className="font-medium">{t('Enhance with AI')}</p>
+									<p className="text-muted-foreground text-xs mt-1">
+										{t(
+											'Improves grammar and formatting of your report. Available on the Pro plan.',
+										)}
+									</p>
+								</TooltipContent>
+							</Tooltip>
 						}
 					>
 						<Button

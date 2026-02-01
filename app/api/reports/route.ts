@@ -81,22 +81,36 @@ export async function POST(request: NextRequest) {
 			const json = await request.json().catch(() => ({}));
 			const action = (json.action as string) || 'generate';
 			if (action === 'generate') {
-				const reportDate = (json.report_date as string) || formatReportDate(new Date());
+				const today = formatReportDate(new Date());
+				const yesterday = (() => {
+					const d = new Date();
+					d.setDate(d.getDate() - 1);
+					return formatReportDate(d);
+				})();
+				const fromDate = (json.from_date as string)?.trim()?.slice(0, 10) || yesterday;
+				const toDate = (json.to_date as string)?.trim()?.slice(0, 10) || today;
 				const locale = typeof json.locale === 'string' ? json.locale : undefined;
 				const service = new ReportsService();
 				const report = await service.createReportProcessing(
 					session.user.id,
-					reportDate,
+					fromDate,
+					toDate,
 				);
 				await publishJson({
 					service: 'ReportsService',
 					action: 'generateReport',
-					payload: { userId: session.user.id, reportDate, locale },
+					payload: {
+						userId: session.user.id,
+						from_date: report.from_date,
+						to_date: report.report_date,
+						locale,
+					},
 				});
 				return NextResponse.json({
 					data: {
 						id: report.id,
 						report_date: report.report_date,
+						from_date: report.from_date,
 						status: report.status,
 					},
 				});

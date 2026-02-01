@@ -7,6 +7,7 @@ interface IProps {
 	channelName: string;
 	render: (data: any) => ReactNode;
 	initialData?: any;
+	onChange?: ((data: any) => void) | null;
 }
 
 export default function SocketClient({
@@ -14,6 +15,7 @@ export default function SocketClient({
 	channelName,
 	render,
 	initialData = null,
+	onChange = null,
 }: IProps) {
 	const [data, setData] = useState<any>(initialData);
 
@@ -29,12 +31,14 @@ export default function SocketClient({
 		const channel = pusher.subscribe(channelName);
 		channel.bind(eventName, (payload: any) => {
 			setData(payload);
+			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+			onChange && onChange(payload);
 		});
 		return () => {
 			channel.unbind(eventName);
 			pusher.unsubscribe(channelName);
 		};
-	}, [eventName, channelName]);
+	}, [eventName, channelName, onChange]);
 
 	return render(data);
 }

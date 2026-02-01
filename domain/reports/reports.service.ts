@@ -1,5 +1,5 @@
 import { pusher } from '@/lib/pusher';
-import { enhanceReportContent } from '@/lib/enhance-report';
+import { enhanceReportContent } from './enhance-report';
 import { BusinessRuleError, NotFoundError } from '@/domain/errors';
 import IntegrationsRepository from '@/domain/integrations/integrations.repository';
 import ReportsRepository, { DailyReport } from './reports.repository';
@@ -107,14 +107,19 @@ function formatDayDisplay(dayStr: string, locale?: string): string {
 	return `${d ?? 0} ${month} ${y ?? ''}`.trim();
 }
 
-function getDaysInRange(reportDate: string): string[] {
-	const reportDay = new Date(reportDate + 'T12:00:00.000Z');
-	const dayBefore = new Date(reportDay);
-	dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
-	return [
-		dayBefore.toISOString().slice(0, 10),
-		reportDate.slice(0, 10),
-	].sort();
+/** All days from fromDate to toDate inclusive (YYYY-MM-DD), chronological */
+function getDaysBetween(fromDate: string, toDate: string): string[] {
+	const from = fromDate.slice(0, 10);
+	const to = toDate.slice(0, 10);
+	if (from > to) return [];
+	const days: string[] = [];
+	const d = new Date(from + 'T12:00:00.000Z');
+	const end = new Date(to + 'T12:00:00.000Z');
+	while (d <= end) {
+		days.push(d.toISOString().slice(0, 10));
+		d.setUTCDate(d.getUTCDate() + 1);
+	}
+	return days;
 }
 
 /** Always show the date (e.g. "30 Jan 2026" / "30 jan. 2026"), never "Ontem" / "Hoje" */
@@ -125,12 +130,11 @@ function formatDayLabel(dayStr: string, locale?: string): string {
 function buildReportByDayProjectBranch(
 	labels: ReportLabels,
 	grouped: ReportByDayProjectBranch,
-	reportDate?: string,
+	fromDate: string,
+	toDate: string,
 	locale?: string,
 ): string {
-	const today = formatReportDate(new Date());
-	const reportDateStr = reportDate?.slice(0, 10) ?? today;
-	const daysInRange = getDaysInRange(reportDateStr);
+	const daysInRange = getDaysBetween(fromDate, toDate).reverse();
 	const lines: string[] = [];
 
 	for (const day of daysInRange) {
@@ -192,7 +196,8 @@ function isBranchIgnoredForProject(
 async function fetchGitLabReportContent(
 	baseUrl: string,
 	token: string,
-	reportDate: string,
+	fromDate: string,
+	toDate: string,
 	labels: ReportLabels,
 	projectIds: number[] | null,
 	ignoredBranchesByProject: IgnoredBranchesByProject | null,
@@ -201,18 +206,14 @@ async function fetchGitLabReportContent(
 	const headers = { 'PRIVATE-TOKEN': token };
 	const grouped: ReportByDayProjectBranch = new Map();
 
-	// Date range: day before reportDate and reportDate (both full days in UTC)
-	const reportDay = new Date(reportDate + 'T00:00:00.000Z');
-	const dayBefore = new Date(reportDay);
-	dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
-	const since = dayBefore.toISOString().slice(0, 10) + 'T00:00:00.000Z';
-	const until = reportDate + 'T23:59:59.999Z';
+	const since = fromDate.slice(0, 10) + 'T00:00:00.000Z';
+	const until = toDate.slice(0, 10) + 'T23:59:59.999Z';
 
 	try {
 		// Author from token: /user gives username/email used for GitLab "author" filter
 		const userRes = await fetch(`${baseUrl}/api/v4/user`, { headers });
 		if (!userRes.ok) {
-			return buildReportByDayProjectBranch(labels, grouped, reportDate, locale);
+			return buildReportByDayProjectBranch(labels, grouped, fromDate, toDate, locale);
 		}
 		const user = (await userRes.json()) as {
 			name: string;
@@ -229,7 +230,7 @@ async function fetchGitLabReportContent(
 				{ headers },
 			);
 			if (!projectsRes.ok) {
-				return buildReportByDayProjectBranch(labels, grouped, reportDate, locale);
+				return buildReportByDayProjectBranch(labels, grouped, fromDate, toDate, locale);
 			}
 			const projects = (await projectsRes.json()) as Array<{ id: number }>;
 			ids = projects.map((p) => p.id);
@@ -285,9 +286,9 @@ async function fetchGitLabReportContent(
 			}
 		}
 
-		return buildReportByDayProjectBranch(labels, grouped, reportDate, locale);
+		return buildReportByDayProjectBranch(labels, grouped, fromDate, toDate, locale);
 	} catch {
-		return buildReportByDayProjectBranch(labels, grouped, reportDate, locale);
+		return buildReportByDayProjectBranch(labels, grouped, fromDate, toDate, locale);
 	}
 }
 
@@ -299,6 +300,18 @@ export default class ReportsService {
 
 	async listUserReports(userId: string): Promise<DailyReport[]> {
 		return this.reportsRepo.findAllByUserId(userId);
+	}
+
+	async listUserReportsByDateRange(
+		userId: string,
+		fromDate: string,
+		toDate: string,
+	): Promise<DailyReport[]> {
+		return this.reportsRepo.findAllByUserIdAndDateRange(
+			userId,
+			fromDate,
+			toDate,
+		);
 	}
 
 	async getReport(userId: string, id: number): Promise<DailyReport | null> {
@@ -338,11 +351,17 @@ export default class ReportsService {
 
 	async generateReport(payload: {
 		userId: string;
-		reportDate?: string | Date;
+		from_date?: string | Date;
+		to_date?: string | Date;
 		locale?: string;
-	}): Promise<{ report_date: string }> {
+	}): Promise<{ report_date: string; from_date: string }> {
 		const userId = payload.userId;
-		const reportDate = toReportDateString(payload.reportDate);
+		const toDate = toReportDateString(payload.to_date);
+		const fromDate = payload.from_date != null
+			? toReportDateString(payload.from_date)
+			: toDate;
+		const effectiveFrom = fromDate <= toDate ? fromDate : toDate;
+		const effectiveTo = fromDate <= toDate ? toDate : fromDate;
 		const labels = getReportLabels(payload.locale ?? 'en');
 
 		const integrations = await this.integrationsRepo.findAllByUserIdAndType(
@@ -358,12 +377,13 @@ export default class ReportsService {
 				[],
 			);
 			await this.reportsRepo.upsert(userId, {
-				report_date: reportDate,
+				report_date: effectiveTo,
+				from_date: effectiveFrom,
 				content,
 				status: 'ready',
 			});
-			this.triggerReportReady(userId, reportDate);
-			return { report_date: reportDate };
+			this.triggerReportReady(userId, effectiveTo);
+			return { report_date: effectiveTo, from_date: effectiveFrom };
 		}
 
 		const baseUrl =
@@ -371,7 +391,8 @@ export default class ReportsService {
 		const content = await fetchGitLabReportContent(
 			baseUrl,
 			integration.token,
-			reportDate,
+			effectiveFrom,
+			effectiveTo,
 			labels,
 			integration.projects,
 			integration.ignored_branches,
@@ -379,24 +400,34 @@ export default class ReportsService {
 		);
 
 		await this.reportsRepo.upsert(userId, {
-			report_date: reportDate,
+			report_date: effectiveTo,
+			from_date: effectiveFrom,
 			content,
 			status: 'ready',
 		});
-		this.triggerReportReady(userId, reportDate);
-		return { report_date: reportDate };
+		this.triggerReportReady(userId, effectiveTo);
+		return { report_date: effectiveTo, from_date: effectiveFrom };
 	}
 
 	async createReportProcessing(
 		userId: string,
-		reportDate: string,
-	): Promise<{ id: number; report_date: string; status: 'processing' }> {
+		fromDate: string,
+		toDate: string,
+	): Promise<{ id: number; report_date: string; from_date: string; status: 'processing' }> {
+		const effectiveFrom = fromDate <= toDate ? fromDate : toDate;
+		const effectiveTo = fromDate <= toDate ? toDate : fromDate;
 		const id = await this.reportsRepo.upsert(userId, {
-			report_date: reportDate,
+			report_date: effectiveTo,
+			from_date: effectiveFrom,
 			content: '',
 			status: 'processing',
 		});
-		return { id, report_date: reportDate, status: 'processing' };
+		return {
+			id,
+			report_date: effectiveTo,
+			from_date: effectiveFrom,
+			status: 'processing',
+		};
 	}
 
 	async setReportProcessing(userId: string, reportId: number): Promise<void> {
@@ -411,7 +442,7 @@ export default class ReportsService {
 		userId: string;
 		reportId: number;
 		locale?: string;
-	}): Promise<{ report_date: string }> {
+	}): Promise<{ report_date: string; from_date: string }> {
 		const report = await this.reportsRepo.findByIdForUser(
 			payload.userId,
 			payload.reportId,
@@ -419,11 +450,12 @@ export default class ReportsService {
 		if (!report) {
 			throw new NotFoundError('Report not found');
 		}
-		// Use the report's original date so regeneration keeps the same report_date
-		const reportDate = toReportDateString(report.report_date);
+		const fromDate = toReportDateString(report.from_date ?? report.report_date);
+		const toDate = toReportDateString(report.report_date);
 		return this.generateReport({
 			userId: payload.userId,
-			reportDate,
+			from_date: fromDate,
+			to_date: toDate,
 			locale: payload.locale,
 		});
 	}

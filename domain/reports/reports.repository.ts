@@ -6,6 +6,7 @@ export type DailyReport = {
 	id: number;
 	user_id: string;
 	report_date: string;
+	from_date: string | null;
 	content: string;
 	status: ReportStatus;
 	enhanced_at: string | null;
@@ -15,13 +16,14 @@ export type DailyReport = {
 
 export type DailyReportInput = {
 	report_date: string;
+	from_date?: string | null;
 	content: string;
 	status?: ReportStatus;
 };
 
 export default class ReportsRepository extends Repository {
 	private readonly columns =
-		'`id`, `user_id`, `report_date`, `content`, `status`, `enhanced_at`, `created_at`, `updated_at`';
+		'`id`, `user_id`, `report_date`, `from_date`, `content`, `status`, `enhanced_at`, `created_at`, `updated_at`';
 
 	async findById(id: number): Promise<DailyReport | null> {
 		return this.findOne(
@@ -44,9 +46,21 @@ export default class ReportsRepository extends Repository {
 		userId: string,
 		reportDate: string,
 	): Promise<DailyReport | null> {
+		return this.findByUserAndReportAndFrom(
+			userId,
+			reportDate,
+			reportDate,
+		);
+	}
+
+	async findByUserAndReportAndFrom(
+		userId: string,
+		reportDate: string,
+		fromDate: string,
+	): Promise<DailyReport | null> {
 		return this.findOne(
-			`SELECT ${this.columns} FROM \`daily_reports\` WHERE \`user_id\` = :userId AND \`report_date\` = :reportDate`,
-			{ userId, reportDate },
+			`SELECT ${this.columns} FROM \`daily_reports\` WHERE \`user_id\` = :userId AND \`report_date\` = :reportDate AND \`from_date\` = :fromDate`,
+			{ userId, reportDate, fromDate },
 		) as Promise<DailyReport | null>;
 	}
 
@@ -59,12 +73,30 @@ export default class ReportsRepository extends Repository {
 			.then(([rows]: unknown[]) => rows as DailyReport[]);
 	}
 
+	async findAllByUserIdAndDateRange(
+		userId: string,
+		fromDate: string,
+		toDate: string,
+	): Promise<DailyReport[]> {
+		return this.db
+			.execute(
+				`SELECT ${this.columns} FROM \`daily_reports\` WHERE \`user_id\` = :userId AND \`report_date\` >= :fromDate AND \`report_date\` <= :toDate ORDER BY \`report_date\` ASC`,
+				{ userId, fromDate, toDate },
+			)
+			.then(([rows]: unknown[]) => rows as DailyReport[]);
+	}
+
 	async upsert(
 		userId: string,
 		data: DailyReportInput,
 	): Promise<number> {
 		const status = data.status ?? 'ready';
-		const existing = await this.findByUserAndDate(userId, data.report_date);
+		const fromDate = data.from_date ?? data.report_date;
+		const existing = await this.findByUserAndReportAndFrom(
+			userId,
+			data.report_date,
+			fromDate,
+		);
 		if (existing) {
 			await this.execute(
 				`UPDATE \`daily_reports\` SET \`content\` = :content, \`status\` = :status, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
@@ -78,10 +110,11 @@ export default class ReportsRepository extends Repository {
 			return existing.id;
 		}
 		const result = (await this.execute(
-			`INSERT INTO \`daily_reports\` (\`user_id\`, \`report_date\`, \`content\`, \`status\`) VALUES (:userId, :reportDate, :content, :status)`,
+			`INSERT INTO \`daily_reports\` (\`user_id\`, \`report_date\`, \`from_date\`, \`content\`, \`status\`) VALUES (:userId, :reportDate, :fromDate, :content, :status)`,
 			{
 				userId,
 				reportDate: data.report_date,
+				fromDate,
 				content: data.content,
 				status,
 			},

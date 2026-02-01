@@ -328,6 +328,7 @@ function TaskManagerIntegrationCard({
 	onClick: () => void;
 }) {
 	const { t } = useLocale();
+	const queryClient = useQueryClient();
 
 	const statusLabel = (status: IntegrationStatus) => {
 		if (status === 'connected') return t('Connected');
@@ -354,6 +355,18 @@ function TaskManagerIntegrationCard({
 			eventName="on-integration-status-update"
 			channelName={`integration-${integration.id}`}
 			initialData={{ status: integration.status }}
+			onChange={(data: { status: IntegrationStatus }) => {
+				queryClient.setQueryData(
+					['integrations', 'task_manager'],
+					(old: any) => {
+						return old.map((item: any) => {
+							if (item.id === integration.id) {
+								return { ...item, status: data.status };
+							}
+						});
+					},
+				);
+			}}
 			render={(data: { status: IntegrationStatus }) => (
 				<Card
 					className="cursor-pointer transition hover:border-primary/40 hover:shadow-sm"
@@ -383,7 +396,11 @@ function TaskManagerIntegrationCard({
 	);
 }
 
-function TaskManagerApiCredentials({ integration }: { integration: Integration }) {
+function TaskManagerApiCredentials({
+	integration,
+}: {
+	integration: Integration;
+}) {
 	const { t } = useLocale();
 	const queryClient = useQueryClient();
 	const [token, setToken] = useState('');
@@ -397,9 +414,7 @@ function TaskManagerApiCredentials({ integration }: { integration: Integration }
 			});
 			const json = await res.json();
 			if (!res.ok || json.error) {
-				throw new Error(
-					json?.error?.message || 'Failed to update credentials',
-				);
+				throw new Error(json?.error?.message || 'Failed to update credentials');
 			}
 			return json;
 		},
