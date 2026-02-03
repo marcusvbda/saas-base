@@ -117,21 +117,6 @@ export async function POST(request: NextRequest) {
 					},
 				});
 			}
-			if (action === 'enhance') {
-				const reportId = Number(json.report_id);
-				if (!reportId || Number.isNaN(reportId)) {
-					return NextResponse.json(
-						{ error: { message: 'Invalid report_id' } },
-						{ status: 400 },
-					);
-				}
-				const service = new ReportsService();
-				const result = await service.enhanceReportWithAI(
-					session.user.id,
-					reportId,
-				);
-				return NextResponse.json({ data: result });
-			}
 			if (action === 'regenerate') {
 				const reportId = Number(json.report_id);
 				if (!reportId || Number.isNaN(reportId)) {

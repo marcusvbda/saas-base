@@ -13,7 +13,6 @@ import {
 	Loader2,
 	Trash2,
 	Sparkles,
-	Lock,
 } from 'lucide-react';
 import { useLocale } from '@/hooks/use-locale';
 import { useSession } from '@/providers/session.provider';
@@ -29,11 +28,6 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import Loading from '@/components/loading';
@@ -133,13 +127,6 @@ export default function DashboardContent() {
 			fetch('/api/integrations?type=repository').then((r) => r.json()),
 	});
 
-	const { data: aiIntegrations = [] } = useQuery({
-		queryKey: ['integrations', 'ai'],
-		queryFn: () => fetch('/api/integrations?type=ai').then((r) => r.json()),
-	});
-	const hasAiIntegration =
-		Array.isArray(aiIntegrations) && aiIntegrations.length > 0;
-
 	const { data: reports = [], isLoading: reportsLoading } = useQuery({
 		queryKey: ['reports'],
 		queryFn: () => fetch('/api/reports').then((r) => r.json()),
@@ -230,38 +217,8 @@ export default function DashboardContent() {
 		},
 	});
 
-	const enhanceMutation = useMutation({
-		mutationFn: async (reportId: number) => {
-			const res = await fetch('/api/reports', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: 'enhance', report_id: reportId }),
-			});
-			const json = await res.json();
-			if (!res.ok || json.error) {
-				throw new Error(json?.error?.message ?? 'Failed to enhance');
-			}
-			return json.data as { content: string };
-		},
-		onError: (err: Error) => {
-			toast.error(err.message ? t(err.message) : t('Something went wrong'));
-		},
-	});
-
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [editedContent, setEditedContent] = useState<string>('');
-	const [enhancedReportId, setEnhancedReportId] = useState<number | null>(null);
-
-	const handleEnhance = useCallback(
-		async (report: DailyReport) => {
-			const result = await enhanceMutation.mutateAsync(report.id);
-			setEditingId(report.id);
-			setEditedContent(result.content);
-			setEnhancedReportId(report.id);
-			toast.success(t('Review the enhanced content and save if you want'));
-		},
-		[enhanceMutation, t],
-	);
 
 	const deleteMutation = useMutation({
 		mutationFn: async (reportId: number) => {
@@ -308,23 +265,20 @@ export default function DashboardContent() {
 	const cancelEdit = useCallback(() => {
 		setEditingId(null);
 		setEditedContent('');
-		setEnhancedReportId(null);
 	}, []);
 
 	const handleSave = useCallback(
 		async (report: DailyReport) => {
 			if (editingId !== report.id) return;
-			const isEnhancedSave = enhancedReportId === report.id;
 			await updateContentMutation.mutateAsync({
 				id: report.id,
 				content: editedContent,
-				enhanced: isEnhancedSave,
+				enhanced: !!report.enhanced_at,
 			});
 			setEditingId(null);
 			setEditedContent('');
-			if (isEnhancedSave) setEnhancedReportId(null);
 		},
-		[editingId, editedContent, enhancedReportId, updateContentMutation],
+		[editingId, editedContent, updateContentMutation],
 	);
 
 	const handleCopy = useCallback(
@@ -362,9 +316,11 @@ export default function DashboardContent() {
 
 	const handleDelete = useCallback(
 		(reportId: number) => {
-			deleteMutation.mutate(reportId);
+			if (window.confirm(t('Are you sure you want to delete this report?'))) {
+				deleteMutation.mutate(reportId);
+			}
 		},
-		[deleteMutation],
+		[deleteMutation, t],
 	);
 
 	if (integrationsLoading) {
@@ -526,15 +482,12 @@ export default function DashboardContent() {
 							onStartEdit={startEdit}
 							onCancelEdit={cancelEdit}
 							onSave={handleSave}
-							onEnhance={handleEnhance}
 							onContentChange={setEditedContent}
 							onCopy={handleCopy}
 							onRegenerate={handleRegenerate}
 							onDelete={handleDelete}
-							hasAiIntegration={hasAiIntegration}
 							updatePending={updateContentMutation.isPending}
 							regeneratePending={regenerateMutation.isPending}
-							enhancePending={enhanceMutation.isPending}
 							deletePending={deleteMutation.isPending}
 							t={t}
 						/>
@@ -556,15 +509,12 @@ export default function DashboardContent() {
 										onStartEdit={startEdit}
 										onCancelEdit={cancelEdit}
 										onSave={handleSave}
-										onEnhance={handleEnhance}
 										onContentChange={setEditedContent}
 										onCopy={handleCopy}
 										onRegenerate={handleRegenerate}
 										onDelete={handleDelete}
-										hasAiIntegration={hasAiIntegration}
 										updatePending={updateContentMutation.isPending}
 										regeneratePending={regenerateMutation.isPending}
-										enhancePending={enhanceMutation.isPending}
 										deletePending={deleteMutation.isPending}
 										t={t}
 									/>
@@ -586,15 +536,12 @@ function ReportCard({
 	onStartEdit,
 	onCancelEdit,
 	onSave,
-	onEnhance,
 	onContentChange,
 	onCopy,
 	onRegenerate,
 	onDelete,
-	hasAiIntegration,
 	updatePending,
 	regeneratePending,
-	enhancePending,
 	deletePending,
 	t,
 }: {
@@ -605,15 +552,12 @@ function ReportCard({
 	onStartEdit: (report: DailyReport) => void;
 	onCancelEdit: () => void;
 	onSave: (report: DailyReport) => void;
-	onEnhance: (report: DailyReport) => void;
 	onContentChange: (value: string) => void;
 	onCopy: (report: DailyReport) => void;
 	onRegenerate: (reportId: number) => void;
 	onDelete?: (reportId: number) => void;
-	hasAiIntegration: boolean;
 	updatePending: boolean;
 	regeneratePending: boolean;
-	enhancePending: boolean;
 	deletePending: boolean;
 	t: (key: string, params?: Record<string, string>) => string;
 }) {
@@ -695,38 +639,6 @@ function ReportCard({
 						<Copy className="mr-2 h-4 w-4" />
 						{t('Copy')}
 					</Button>
-					{hasAiIntegration ? (
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => onEnhance(report)}
-							disabled={enhancePending || isProcessing || isEditing}
-							className="border-cyan-500/50 text-cyan-700 dark:text-cyan-400 hover:bg-cyan-500/10"
-						>
-							{enhancePending ? (
-								<Loader2 className="h-4 w-4 animate-spin" />
-							) : (
-								<Sparkles className="h-4 w-4" />
-							)}
-							<span className="sr-only">{t('Enhance with AI')}</span>
-						</Button>
-					) : (
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<span className="inline-flex">
-									<Lock className="size-4 mx-4" />
-								</span>
-							</TooltipTrigger>
-							<TooltipContent side="bottom" className="max-w-xs text-center">
-								<p className="font-medium">{t('Enhance with AI')}</p>
-								<p className="text-muted-foreground text-xs mt-1">
-									{t(
-										'Configure an AI integration in Settings to use Enhance with AI.',
-									)}
-								</p>
-							</TooltipContent>
-						</Tooltip>
-					)}
 					<Button
 						variant="outline"
 						size="sm"

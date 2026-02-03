@@ -14,8 +14,8 @@ const dashboard = {
 	"You don't have a report for today yet. Use the form above to generate one for a period (e.g. from yesterday to today).":
 		'Você ainda não tem um relatório de hoje. Use o formulário acima para gerar um para um período (ex.: de ontem até hoje).',
 	"You already have today's report. Use Regenerate or Delete on the card below to create a new one.":
-		"Você já tem o rascunho de hoje. Use Regenerar ou Excluir no card abaixo para criar um novo.",
-	"Today's Draft": "Rascunho de hoje",
+		'Você já tem o rascunho de hoje. Use Regenerar ou Excluir no card abaixo para criar um novo.',
+	"Today's Draft": 'Rascunho de hoje',
 	"You don't have a report for today yet. Generate one to get started.":
 		'Você ainda não tem um relatório de hoje. Gere um para começar.',
 	'Generate report': 'Gerar relatório',
@@ -36,6 +36,8 @@ const dashboard = {
 	'Processing…': 'Processando…',
 	'Report is being regenerated.': 'Relatório está sendo regenerado.',
 	'Delete report': 'Excluir relatório',
+	'Are you sure you want to delete this report?':
+		'Deseja mesmo excluir este relatório?',
 	'Report deleted': 'Relatório excluído',
 	'Draft saved': 'Rascunho salvo',
 	'Enhance with AI': 'Melhorar com IA',

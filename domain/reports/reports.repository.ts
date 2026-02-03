@@ -19,6 +19,7 @@ export type DailyReportInput = {
 	from_date?: string | null;
 	content: string;
 	status?: ReportStatus;
+	enhanced?: boolean;
 };
 
 export default class ReportsRepository extends Repository {
@@ -97,20 +98,39 @@ export default class ReportsRepository extends Repository {
 			data.report_date,
 			fromDate,
 		);
+		const enhanced = data.enhanced ?? false;
 		if (existing) {
-			await this.execute(
-				`UPDATE \`daily_reports\` SET \`content\` = :content, \`status\` = :status, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
-				{
-					id: existing.id,
-					userId,
-					content: data.content,
-					status,
-				},
-			);
+			if (enhanced) {
+				await this.execute(
+					`UPDATE \`daily_reports\` SET \`content\` = :content, \`status\` = :status, \`enhanced_at\` = CURRENT_TIMESTAMP, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
+					{
+						id: existing.id,
+						userId,
+						content: data.content,
+						status,
+					},
+				);
+			} else {
+				await this.execute(
+					`UPDATE \`daily_reports\` SET \`content\` = :content, \`status\` = :status, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
+					{
+						id: existing.id,
+						userId,
+						content: data.content,
+						status,
+					},
+				);
+			}
 			return existing.id;
 		}
+		const insertColumns = enhanced
+			? '`user_id`, `report_date`, `from_date`, `content`, `status`, `enhanced_at`'
+			: '`user_id`, `report_date`, `from_date`, `content`, `status`';
+		const insertValues = enhanced
+			? ':userId, :reportDate, :fromDate, :content, :status, CURRENT_TIMESTAMP'
+			: ':userId, :reportDate, :fromDate, :content, :status';
 		const result = (await this.execute(
-			`INSERT INTO \`daily_reports\` (\`user_id\`, \`report_date\`, \`from_date\`, \`content\`, \`status\`) VALUES (:userId, :reportDate, :fromDate, :content, :status)`,
+			`INSERT INTO \`daily_reports\` (${insertColumns}) VALUES (${insertValues})`,
 			{
 				userId,
 				reportDate: data.report_date,

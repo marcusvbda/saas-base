@@ -1,6 +1,6 @@
 import { pusher } from '@/lib/pusher';
 import { enhanceReportContent } from './enhance-report';
-import { BusinessRuleError, NotFoundError } from '@/domain/errors';
+import { NotFoundError } from '@/domain/errors';
 import IntegrationsRepository from '@/domain/integrations/integrations.repository';
 import ReportsRepository, { DailyReport } from './reports.repository';
 
@@ -375,37 +375,6 @@ export default class ReportsService {
 		await this.reportsRepo.updateContent(userId, id, content, enhanced);
 	}
 
-	async enhanceReportWithAI(
-		userId: string,
-		reportId: number,
-	): Promise<{ content: string }> {
-		const report = await this.reportsRepo.findByIdForUser(userId, reportId);
-		if (!report) {
-			throw new NotFoundError('Report not found');
-		}
-		if (report.status === 'processing') {
-			throw new BusinessRuleError('Report is still processing');
-		}
-		if (!report.content?.trim()) {
-			throw new BusinessRuleError('Report has no content to enhance');
-		}
-		const aiIntegration = await this.integrationsRepo.findFirstByUserIdAndType(
-			userId,
-			'ai',
-		);
-		if (!aiIntegration?.base_url?.trim() || !aiIntegration.token?.trim()) {
-			throw new BusinessRuleError(
-				'Configure an AI integration in Settings to use Enhance with AI.',
-			);
-		}
-		const content = await enhanceReportContent(report.content, {
-			baseURL: aiIntegration.base_url,
-			token: aiIntegration.token,
-			model: aiIntegration.model,
-		});
-		return { content };
-	}
-
 	async generateReport(payload: {
 		userId: string;
 		from_date?: string | Date;
@@ -446,7 +415,7 @@ export default class ReportsService {
 
 		const baseUrl =
 			(process.env.GITLAB_API_URL as string) || 'https://gitlab.com';
-		const content = await fetchGitLabReportContent(
+		let content = await fetchGitLabReportContent(
 			baseUrl,
 			integration.token,
 			effectiveFrom,
@@ -457,11 +426,30 @@ export default class ReportsService {
 			payload.locale,
 		);
 
+		let enhanced = false;
+		if (content?.trim()) {
+			const aiIntegration =
+				await this.integrationsRepo.findFirstByUserIdAndType(userId, 'ai');
+			if (aiIntegration?.base_url?.trim() && aiIntegration.token?.trim()) {
+				try {
+					content = await enhanceReportContent(content, {
+						baseURL: aiIntegration.base_url,
+						token: aiIntegration.token,
+						model: aiIntegration.model,
+					});
+					enhanced = true;
+				} catch {
+					// Keep raw content if AI enhance fails
+				}
+			}
+		}
+
 		await this.reportsRepo.upsert(userId, {
 			report_date: effectiveTo,
 			from_date: effectiveFrom,
 			content,
 			status: 'ready',
+			enhanced,
 		});
 		this.triggerReportReady(userId, effectiveTo);
 		return { report_date: effectiveTo, from_date: effectiveFrom };
