@@ -136,11 +136,21 @@ Technical errors must **never** be shown directly to users.
 
 ---
 
+## Form Validation
+
+- **Never** validate form inputs with manual checks (e.g. `if (!x.trim())`, `if (!value)`).
+- **Always** use a **Zod** schema to validate form payloads before submit.
+- Parse with `schema.safeParse(payload)`; on failure, show the first error message (e.g. `error.issues[0].message`) or map `error.flatten().fieldErrors` to fields.
+- Keep validation logic in one place (the schema); reuse the same or aligned schemas on the API when possible.
+
+---
+
 ## Non-Negotiables
 
 - No business logic in UI
 - No direct backend calls from components
 - No architectural shortcuts
 - Predictability over flexibility
+- No manual form validation; use Zod schema validator
 
 Architectural violations are treated as bugs.

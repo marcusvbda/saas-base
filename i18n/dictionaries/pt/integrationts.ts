@@ -34,6 +34,7 @@ const integrations = {
 	Delete: 'Excluir',
 	Edit: 'Editar',
 	'Save changes': 'Salvar alterações',
+	Add: 'Adicionar',
 	Connect: 'Conectar',
 	Cancel: 'Cancelar',
 	'Saving…': 'Salvando…',
@@ -69,6 +70,37 @@ const integrations = {
 	'No branches found matching filter':
 		'Nenhuma branch encontrada com este filtro',
 	ignored: 'ignorada(s)',
+	// AI integration
+	'Add AI integration': 'Adicionar integração AI',
+	'No AI integration yet': 'Nenhuma integração de AI ainda',
+	'Configure an AI provider (OpenAI-compatible API) to use Enhance with AI on your reports.':
+		'Configure um provedor de AI (API compatível com OpenAI) para usar Melhorar com AI nos seus relatórios.',
+	'Edit AI integration': 'Editar integração AI',
+	'Agent name': 'Nome do agente',
+	'e.g. OpenAI, OpenRouter': 'ex: OpenAI, OpenRouter',
+	'API URL': 'URL da API',
+	'https://api.openai.com/v1': 'https://api.openai.com/v1',
+	'OpenAI-compatible API base URL (e.g. OpenAI, OpenRouter).':
+		'URL base da API compatível com OpenAI (ex: OpenAI, OpenRouter).',
+	'API key': 'Chave da API',
+	'Leave blank to keep current': 'Deixe em branco para manter a atual',
+	'Paste your API key': 'Cole sua chave da API',
+	Model: 'Modelo',
+	optional: 'opcional',
+	'Add another': 'Adicionar outra',
+	'AI integration created successfully': 'Integração AI criada com sucesso',
+	'AI integration updated successfully': 'Integração AI atualizada com sucesso',
+	'AI integration deleted successfully': 'Integração AI excluída com sucesso',
+	'URL is required': 'URL é obrigatória',
+	'Agent name is required': 'Nome do agente é obrigatório',
+	'AI Agent': 'Agente AI',
+	'Configure an AI integration in Settings to use Enhance with AI.':
+		'Configure uma integração de AI em Integrações para usar Melhorar com AI.',
+	'Add an AI integration with API URL and token to enable Enhance with AI.':
+		'Adicione uma integração de AI com URL da API e token para habilitar Melhorar com AI.',
+	'Only one AI integration is allowed. Edit the existing one.':
+		'Só é permitida uma integração de AI. Edite a existente.',
+	'Model is required': 'Modelo é obrigatório',
 };
 
 export default integrations;

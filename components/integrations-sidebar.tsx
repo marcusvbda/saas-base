@@ -3,8 +3,10 @@
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './ui/card';
 import { useLocale } from '@/hooks/use-locale';
-import { GitBranchIcon } from 'lucide-react';
-import type { ISettingsSection } from '@/app/[locale]/(protected)/integrations/page';
+import { GitBranchIcon, Sparkles } from 'lucide-react';
+
+export const SettingsSections = ['repository-provider', 'ai'] as const;
+export type ISettingsSection = (typeof SettingsSections)[number];
 
 interface IntegrationsSidebarProps {
 	activeSection?: ISettingsSection;
@@ -25,6 +27,11 @@ export default function IntegrationsSidebar({
 			id: 'repository-provider',
 			label: t('Repository Provider'),
 			icon: GitBranchIcon,
+		},
+		{
+			id: 'ai',
+			label: t('AI'),
+			icon: Sparkles,
 		},
 	];
 

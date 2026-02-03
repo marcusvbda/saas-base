@@ -87,9 +87,11 @@ export async function POST(request: NextRequest) {
 					d.setDate(d.getDate() - 1);
 					return formatReportDate(d);
 				})();
-				const fromDate = (json.from_date as string)?.trim()?.slice(0, 10) || yesterday;
+				const fromDate =
+					(json.from_date as string)?.trim()?.slice(0, 10) || yesterday;
 				const toDate = (json.to_date as string)?.trim()?.slice(0, 10) || today;
-				const locale = typeof json.locale === 'string' ? json.locale : undefined;
+				const locale =
+					typeof json.locale === 'string' ? json.locale : undefined;
 				const service = new ReportsService();
 				const report = await service.createReportProcessing(
 					session.user.id,
@@ -123,14 +125,6 @@ export async function POST(request: NextRequest) {
 						{ status: 400 },
 					);
 				}
-				const subscription = (session as { subscription?: string })
-					?.subscription;
-				if (subscription !== 'pro') {
-					return NextResponse.json(
-						{ error: { message: 'Enhance with AI is available on Pro plan' } },
-						{ status: 403 },
-					);
-				}
 				const service = new ReportsService();
 				const result = await service.enhanceReportWithAI(
 					session.user.id,
@@ -146,7 +140,8 @@ export async function POST(request: NextRequest) {
 						{ status: 400 },
 					);
 				}
-				const locale = typeof json.locale === 'string' ? json.locale : undefined;
+				const locale =
+					typeof json.locale === 'string' ? json.locale : undefined;
 				const service = new ReportsService();
 				await service.setReportProcessing(session.user.id, reportId);
 				await publishJson({

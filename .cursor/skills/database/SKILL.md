@@ -79,6 +79,7 @@ Rules:
 - Migrations are SQL-only files
 - Migrations are immutable once applied
 - One logical change per migration
+- Never add comment in columns or tables
 
 Rules:
 

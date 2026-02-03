@@ -15,7 +15,6 @@ import {
 	Sparkles,
 	Lock,
 } from 'lucide-react';
-import PlanGate from '@/components/plan-gate';
 import { useLocale } from '@/hooks/use-locale';
 import { useSession } from '@/providers/session.provider';
 import BasePage from '@/app/[locale]/(protected)/base-page';
@@ -133,6 +132,13 @@ export default function DashboardContent() {
 		queryFn: () =>
 			fetch('/api/integrations?type=repository').then((r) => r.json()),
 	});
+
+	const { data: aiIntegrations = [] } = useQuery({
+		queryKey: ['integrations', 'ai'],
+		queryFn: () => fetch('/api/integrations?type=ai').then((r) => r.json()),
+	});
+	const hasAiIntegration =
+		Array.isArray(aiIntegrations) && aiIntegrations.length > 0;
 
 	const { data: reports = [], isLoading: reportsLoading } = useQuery({
 		queryKey: ['reports'],
@@ -525,6 +531,7 @@ export default function DashboardContent() {
 							onCopy={handleCopy}
 							onRegenerate={handleRegenerate}
 							onDelete={handleDelete}
+							hasAiIntegration={hasAiIntegration}
 							updatePending={updateContentMutation.isPending}
 							regeneratePending={regenerateMutation.isPending}
 							enhancePending={enhanceMutation.isPending}
@@ -554,6 +561,7 @@ export default function DashboardContent() {
 										onCopy={handleCopy}
 										onRegenerate={handleRegenerate}
 										onDelete={handleDelete}
+										hasAiIntegration={hasAiIntegration}
 										updatePending={updateContentMutation.isPending}
 										regeneratePending={regenerateMutation.isPending}
 										enhancePending={enhanceMutation.isPending}
@@ -583,6 +591,7 @@ function ReportCard({
 	onCopy,
 	onRegenerate,
 	onDelete,
+	hasAiIntegration,
 	updatePending,
 	regeneratePending,
 	enhancePending,
@@ -601,6 +610,7 @@ function ReportCard({
 	onCopy: (report: DailyReport) => void;
 	onRegenerate: (reportId: number) => void;
 	onDelete?: (reportId: number) => void;
+	hasAiIntegration: boolean;
 	updatePending: boolean;
 	regeneratePending: boolean;
 	enhancePending: boolean;
@@ -685,24 +695,7 @@ function ReportCard({
 						<Copy className="mr-2 h-4 w-4" />
 						{t('Copy')}
 					</Button>
-					<PlanGate
-						allowedPlans={['pro']}
-						fallback={
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Lock className="size-4 mx-4" />
-								</TooltipTrigger>
-								<TooltipContent side="bottom" className="max-w-xs text-center">
-									<p className="font-medium">{t('Enhance with AI')}</p>
-									<p className="text-muted-foreground text-xs mt-1">
-										{t(
-											'Improves grammar and formatting of your report. Available on the Pro plan.',
-										)}
-									</p>
-								</TooltipContent>
-							</Tooltip>
-						}
-					>
+					{hasAiIntegration ? (
 						<Button
 							variant="outline"
 							size="sm"
@@ -717,7 +710,23 @@ function ReportCard({
 							)}
 							<span className="sr-only">{t('Enhance with AI')}</span>
 						</Button>
-					</PlanGate>
+					) : (
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<span className="inline-flex">
+									<Lock className="size-4 mx-4" />
+								</span>
+							</TooltipTrigger>
+							<TooltipContent side="bottom" className="max-w-xs text-center">
+								<p className="font-medium">{t('Enhance with AI')}</p>
+								<p className="text-muted-foreground text-xs mt-1">
+									{t(
+										'Configure an AI integration in Settings to use Enhance with AI.',
+									)}
+								</p>
+							</TooltipContent>
+						</Tooltip>
+					)}
 					<Button
 						variant="outline"
 						size="sm"

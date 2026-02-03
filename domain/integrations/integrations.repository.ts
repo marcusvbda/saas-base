@@ -5,7 +5,7 @@ export type RepositoryIntegrationStatus =
 	| 'connected'
 	| 'disconnected';
 
-export type RepositoryIntegrationType = 'repository';
+export type RepositoryIntegrationType = 'repository' | 'ai';
 
 /** project id (string) -> branch names to ignore */
 export type IgnoredBranchesByProject = Record<string, string[]>;
@@ -19,6 +19,8 @@ export type RepositoryIntegration = {
 	status: RepositoryIntegrationStatus;
 	projects: number[] | null;
 	ignored_branches: IgnoredBranchesByProject | null;
+	base_url: string | null;
+	model: string | null;
 	created_at: string;
 	updated_at: string;
 };
@@ -30,15 +32,19 @@ export type RepositoryIntegrationInput = {
 	status?: RepositoryIntegrationStatus;
 	projects?: number[] | null;
 	ignored_branches?: IgnoredBranchesByProject | null;
+	base_url?: string | null;
+	model?: string | null;
 };
 
 export default class IntegrationsRepository extends Repository {
 	private readonly columns =
-		'`id`, `user_id`, `provider`, `type`, `token`, `status`, `projects`, `ignored_branches`, `created_at`, `updated_at`';
+		'`id`, `user_id`, `provider`, `type`, `token`, `status`, `projects`, `ignored_branches`, `base_url`, `model`, `created_at`, `updated_at`';
 
 	private parseIntegration(row: any): RepositoryIntegration {
 		return {
 			...row,
+			base_url: row.base_url ?? null,
+			model: row.model ?? null,
 			projects: row.projects
 				? typeof row.projects === 'string'
 					? JSON.parse(row.projects)
@@ -91,6 +97,14 @@ export default class IntegrationsRepository extends Repository {
 			);
 	}
 
+	async findFirstByUserIdAndType(
+		userId: string,
+		type: RepositoryIntegrationType,
+	): Promise<RepositoryIntegration | null> {
+		const rows = await this.findAllByUserIdAndType(userId, type);
+		return rows[0] ?? null;
+	}
+
 	async findByIdForUser(userId: string, id: number) {
 		const row = await this.findOne(
 			`SELECT ${this.columns} FROM \`repository_integrations\` WHERE \`user_id\` = :userId AND \`id\` = :id`,
@@ -104,19 +118,22 @@ export default class IntegrationsRepository extends Repository {
 		data: RepositoryIntegrationInput,
 	): Promise<number> {
 		const type = data.type ?? 'repository';
+		const status = type === 'ai' ? 'connected' : 'pending';
 		const result = (await this.execute(
-			`INSERT INTO \`repository_integrations\` (\`user_id\`, \`provider\`, \`type\`, \`token\`, \`status\`, \`projects\`, \`ignored_branches\`)
-       VALUES (:userId, :provider, :type, :token, :status, :projects, :ignored_branches)`,
+			`INSERT INTO \`repository_integrations\` (\`user_id\`, \`provider\`, \`type\`, \`token\`, \`status\`, \`projects\`, \`ignored_branches\`, \`base_url\`, \`model\`)
+       VALUES (:userId, :provider, :type, :token, :status, :projects, :ignored_branches, :base_url, :model)`,
 			{
 				userId,
 				provider: data.provider,
 				type,
 				token: data.token,
-				status: 'pending',
+				status,
 				projects: data.projects ? JSON.stringify(data.projects) : null,
 				ignored_branches: data.ignored_branches
 					? JSON.stringify(data.ignored_branches)
 					: null,
+				base_url: data.base_url ?? null,
+				model: data.model ?? null,
 			},
 		)) as { insertId?: number };
 		return result.insertId ?? 0;
@@ -133,6 +150,8 @@ export default class IntegrationsRepository extends Repository {
 			'status',
 			'projects',
 			'ignored_branches',
+			'base_url',
+			'model',
 		];
 		const updates: string[] = [];
 		const params: Record<string, unknown> = { id, userId };

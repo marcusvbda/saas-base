@@ -22,6 +22,12 @@ export default class IntegrationsService {
 		return this.repository.findAllByUserIdAndType(userId, type);
 	}
 
+	async getAIIntegration(
+		userId: string,
+	): Promise<RepositoryIntegration | null> {
+		return this.repository.findFirstByUserIdAndType(userId, 'ai');
+	}
+
 	async createIntegration(
 		userId: string,
 		data: RepositoryIntegrationInput,

@@ -20,22 +20,22 @@ function getConfig(): {
 			'AI_API_KEY is not configured. Add it to .env to use AI features.',
 		);
 	}
-	const baseURL =
-		process.env.AI_BASE_URL?.trim() || DEFAULT_BASE_URL;
+	const baseURL = process.env.AI_BASE_URL?.trim() || DEFAULT_BASE_URL;
 	const rawModel = process.env.AI_MODEL?.trim() || DEFAULT_MODEL;
 	const model = rawModel.replace(/^["']|["']$/g, '');
 	return { apiKey, baseURL, model };
 }
 
-/**
- * Creates a chat completion using OpenAI-compatible API (OpenAI, OpenRouter, etc.).
- * Config: AI_API_KEY, AI_BASE_URL (optional), AI_MODEL (optional).
- * Example OpenRouter: AI_BASE_URL=https://openrouter.ai/api/v1 AI_MODEL=openai/gpt-4o-mini
- */
-export async function createChatCompletion(
+export type AIConfig = {
+	apiKey: string;
+	baseURL: string;
+	model: string;
+};
+
+async function createChatCompletionWithConfig(
 	messages: ChatMessage[],
+	config: AIConfig,
 ): Promise<string> {
-	const config = getConfig();
 	try {
 		const isOpenRouter = config.baseURL.includes('openrouter.ai');
 		const client = new OpenAI({
@@ -72,7 +72,7 @@ export async function createChatCompletion(
 			messageLower.includes('401')
 		) {
 			throw new InfrastructureError(
-				'Invalid AI API key. Check AI_API_KEY in .env.',
+				'Invalid AI API key. Check your AI integration settings.',
 			);
 		}
 		if (messageLower.includes('rate') || messageLower.includes('429')) {
@@ -89,11 +89,24 @@ export async function createChatCompletion(
 					? ` Value sent: ${config.model}`
 					: '';
 			throw new InfrastructureError(
-				`The AI provider returned "model not found". Check that AI_MODEL in .env is a valid model ID for your provider.${hint}`,
+				`The AI provider returned "model not found". Check the model in your AI integration.${hint}`,
 			);
 		}
 		throw new InfrastructureError(
 			'AI service temporarily unavailable. Try again later.',
 		);
 	}
+}
+
+/**
+ * Creates a chat completion using OpenAI-compatible API (OpenAI, OpenRouter, etc.).
+ * When config is provided (e.g. from user's AI integration), uses it; otherwise env vars.
+ * Config: AI_API_KEY, AI_BASE_URL (optional), AI_MODEL (optional).
+ */
+export async function createChatCompletion(
+	messages: ChatMessage[],
+	config?: AIConfig,
+): Promise<string> {
+	const resolved = config ?? getConfig();
+	return createChatCompletionWithConfig(messages, resolved);
 }

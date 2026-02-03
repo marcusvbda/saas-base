@@ -1,4 +1,6 @@
-import { createChatCompletion } from '@/lib/open-ai';
+import { createChatCompletion, type AIConfig } from '@/lib/open-ai';
+
+const DEFAULT_MODEL = 'gpt-4o-mini';
 
 const SYSTEM_PROMPT = `You are improving a daily work report written in Markdown. The report has sections by date (## date), then project names in bold, then branch names in bold, then bullet lists of commit titles.
 
@@ -9,9 +11,31 @@ Your task:
 4. Keep the same Markdown style: ## for dates, **bold** for project and branch names, - for list items. No emojis.
 5. Output only the improved Markdown, no preamble or explanation.`;
 
-export async function enhanceReportContent(content: string): Promise<string> {
-	return createChatCompletion([
-		{ role: 'system', content: SYSTEM_PROMPT },
-		{ role: 'user', content },
-	]);
+export type EnhanceReportAIConfig = {
+	baseURL: string;
+	token: string;
+	model?: string | null;
+};
+
+export async function enhanceReportContent(
+	content: string,
+	aiConfig?: EnhanceReportAIConfig,
+): Promise<string> {
+	const config: AIConfig | undefined = aiConfig
+		? {
+				apiKey: aiConfig.token,
+				baseURL: aiConfig.baseURL.replace(/\/$/, ''),
+				model: (aiConfig.model?.trim() || DEFAULT_MODEL).replace(
+					/^["']|["']$/g,
+					'',
+				),
+			}
+		: undefined;
+	return createChatCompletion(
+		[
+			{ role: 'system', content: SYSTEM_PROMPT },
+			{ role: 'user', content },
+		],
+		config,
+	);
 }

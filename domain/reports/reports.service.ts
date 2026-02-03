@@ -91,12 +91,32 @@ function buildReportSections(
 type ReportByDayProjectBranch = Map<string, Map<string, Map<string, string[]>>>;
 
 const MONTH_ABBR_EN = [
-	'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-	'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+	'Jan',
+	'Feb',
+	'Mar',
+	'Apr',
+	'May',
+	'Jun',
+	'Jul',
+	'Aug',
+	'Sep',
+	'Oct',
+	'Nov',
+	'Dec',
 ];
 const MONTH_ABBR_PT = [
-	'jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.',
-	'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.',
+	'jan.',
+	'fev.',
+	'mar.',
+	'abr.',
+	'mai.',
+	'jun.',
+	'jul.',
+	'ago.',
+	'set.',
+	'out.',
+	'nov.',
+	'dez.',
 ];
 
 /** Format YYYY-MM-DD as "30 Jan 2026" or "30 jan. 2026" (pt) */
@@ -213,7 +233,13 @@ async function fetchGitLabReportContent(
 		// Author from token: /user gives username/email used for GitLab "author" filter
 		const userRes = await fetch(`${baseUrl}/api/v4/user`, { headers });
 		if (!userRes.ok) {
-			return buildReportByDayProjectBranch(labels, grouped, fromDate, toDate, locale);
+			return buildReportByDayProjectBranch(
+				labels,
+				grouped,
+				fromDate,
+				toDate,
+				locale,
+			);
 		}
 		const user = (await userRes.json()) as {
 			name: string;
@@ -230,7 +256,13 @@ async function fetchGitLabReportContent(
 				{ headers },
 			);
 			if (!projectsRes.ok) {
-				return buildReportByDayProjectBranch(labels, grouped, fromDate, toDate, locale);
+				return buildReportByDayProjectBranch(
+					labels,
+					grouped,
+					fromDate,
+					toDate,
+					locale,
+				);
 			}
 			const projects = (await projectsRes.json()) as Array<{ id: number }>;
 			ids = projects.map((p) => p.id);
@@ -286,9 +318,21 @@ async function fetchGitLabReportContent(
 			}
 		}
 
-		return buildReportByDayProjectBranch(labels, grouped, fromDate, toDate, locale);
+		return buildReportByDayProjectBranch(
+			labels,
+			grouped,
+			fromDate,
+			toDate,
+			locale,
+		);
 	} catch {
-		return buildReportByDayProjectBranch(labels, grouped, fromDate, toDate, locale);
+		return buildReportByDayProjectBranch(
+			labels,
+			grouped,
+			fromDate,
+			toDate,
+			locale,
+		);
 	}
 }
 
@@ -345,7 +389,20 @@ export default class ReportsService {
 		if (!report.content?.trim()) {
 			throw new BusinessRuleError('Report has no content to enhance');
 		}
-		const content = await enhanceReportContent(report.content);
+		const aiIntegration = await this.integrationsRepo.findFirstByUserIdAndType(
+			userId,
+			'ai',
+		);
+		if (!aiIntegration?.base_url?.trim() || !aiIntegration.token?.trim()) {
+			throw new BusinessRuleError(
+				'Configure an AI integration in Settings to use Enhance with AI.',
+			);
+		}
+		const content = await enhanceReportContent(report.content, {
+			baseURL: aiIntegration.base_url,
+			token: aiIntegration.token,
+			model: aiIntegration.model,
+		});
 		return { content };
 	}
 
@@ -357,9 +414,10 @@ export default class ReportsService {
 	}): Promise<{ report_date: string; from_date: string }> {
 		const userId = payload.userId;
 		const toDate = toReportDateString(payload.to_date);
-		const fromDate = payload.from_date != null
-			? toReportDateString(payload.from_date)
-			: toDate;
+		const fromDate =
+			payload.from_date != null
+				? toReportDateString(payload.from_date)
+				: toDate;
 		const effectiveFrom = fromDate <= toDate ? fromDate : toDate;
 		const effectiveTo = fromDate <= toDate ? toDate : fromDate;
 		const labels = getReportLabels(payload.locale ?? 'en');
@@ -413,7 +471,12 @@ export default class ReportsService {
 		userId: string,
 		fromDate: string,
 		toDate: string,
-	): Promise<{ id: number; report_date: string; from_date: string; status: 'processing' }> {
+	): Promise<{
+		id: number;
+		report_date: string;
+		from_date: string;
+		status: 'processing';
+	}> {
 		const effectiveFrom = fromDate <= toDate ? fromDate : toDate;
 		const effectiveTo = fromDate <= toDate ? toDate : fromDate;
 		const id = await this.reportsRepo.upsert(userId, {

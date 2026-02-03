@@ -6,7 +6,7 @@ import { publishJson } from '@/lib/qstash';
 import { z } from 'zod';
 import { RepositoryIntegrationType } from '@/domain/integrations/integrations.repository';
 
-const bodySchema = z.object({
+const repositoryBodySchema = z.object({
 	provider: z.enum(['gitlab']),
 	type: z.literal('repository').optional(),
 	token: z.string().min(1),
@@ -17,17 +17,24 @@ const bodySchema = z.object({
 		.nullable(),
 });
 
-const PROVIDER_TYPE_MAP: Record<string, RepositoryIntegrationType> = {
-	gitlab: 'repository',
-};
+const aiBodySchema = z.object({
+	type: z.literal('ai'),
+	base_url: z.string().min(1, 'URL is required'),
+	token: z.string().min(1, 'Token is required'),
+	model: z.string().optional().nullable(),
+});
+
+const postBodySchema = z.union([repositoryBodySchema, aiBodySchema]);
 
 export async function GET(request: NextRequest) {
 	return requireServerAuth(async ({ session }) => {
 		const { searchParams } = new URL(request.url);
 		const type = searchParams.get('type') as RepositoryIntegrationType | null;
-		if (!type) {
+		if (!type || !['repository', 'ai'].includes(type)) {
 			return NextResponse.json(
-				{ error: { message: 'Missing type' } },
+				{
+					error: { message: 'Missing or invalid type (use repository or ai)' },
+				},
 				{ status: 400 },
 			);
 		}
@@ -44,40 +51,58 @@ export async function POST(request: NextRequest) {
 	return requireServerAuth(async ({ session }) => {
 		try {
 			const json = await request.json();
-			const parsed = bodySchema.safeParse(json);
+			const parsed = postBodySchema.safeParse(json);
 			if (!parsed.success) {
-				return NextResponse.json(
-					{ error: { message: 'Invalid payload' } },
-					{ status: 400 },
-				);
+				const msg = parsed.error.issues[0]?.message ?? 'Invalid payload';
+				return NextResponse.json({ error: { message: msg } }, { status: 400 });
 			}
-			const expectedType = PROVIDER_TYPE_MAP[parsed.data.provider];
-			const type =
-				(parsed.data.type as RepositoryIntegrationType) ?? expectedType;
-			if (type !== expectedType) {
-				return NextResponse.json(
-					{ error: { message: 'Invalid provider and type combination' } },
-					{ status: 400 },
+			const data = parsed.data;
+			const isAi = data.type === 'ai';
+			if (isAi) {
+				const service = new IntegrationsService();
+				const existing = await service.listUserIntegrationsByType(
+					session.user.id,
+					'ai',
 				);
+				if (existing.length > 0) {
+					return NextResponse.json(
+						{
+							error: {
+								message:
+									'Only one AI integration is allowed. Edit the existing one.',
+							},
+						},
+						{ status: 409 },
+					);
+				}
 			}
-			const createData = {
-				provider: parsed.data.provider,
-				type,
-				token: parsed.data.token,
-				projects: parsed.data.projects,
-				ignored_branches: parsed.data.ignored_branches,
-			};
+			const createData = isAi
+				? {
+						provider: 'ai',
+						type: 'ai' as const,
+						token: data.token,
+						base_url: data.base_url.replace(/\/$/, ''),
+						model: data.model ?? null,
+					}
+				: {
+						provider: data.provider,
+						type: 'repository' as const,
+						token: data.token,
+						projects: data.projects,
+						ignored_branches: data.ignored_branches,
+					};
 			const service = new IntegrationsService();
 			const { id } = await service.createIntegration(
 				session.user.id,
 				createData,
 			);
-			await publishJson({
-				service: 'IntegrationsService',
-				action: 'validateTokenStatus',
-				payload: { id },
-			});
-
+			if (!isAi) {
+				await publishJson({
+					service: 'IntegrationsService',
+					action: 'validateTokenStatus',
+					payload: { id },
+				});
+			}
 			return NextResponse.json({ data: { success: true } }, { status: 201 });
 		} catch (error) {
 			return domainErrorToNextResponse(error);
@@ -97,7 +122,19 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
-			const parsed = bodySchema.partial().safeParse(json);
+			const putBodySchema = z.object({
+				id: z.number().optional(),
+				provider: z.string().optional(),
+				token: z.string().optional(),
+				projects: z.array(z.number()).optional().nullable(),
+				ignored_branches: z
+					.record(z.string(), z.array(z.string()))
+					.optional()
+					.nullable(),
+				base_url: z.string().optional().nullable(),
+				model: z.string().optional().nullable(),
+			});
+			const parsed = putBodySchema.safeParse(json);
 			if (!parsed.success) {
 				return NextResponse.json(
 					{ error: { message: 'Invalid payload' } },
@@ -105,9 +142,17 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
-			const { provider, token, projects, ignored_branches } = parsed.data;
+			const { provider, token, projects, ignored_branches, base_url, model } =
+				parsed.data;
 
-			if (!provider && token === undefined && !projects && !ignored_branches) {
+			const hasUpdate =
+				provider !== undefined ||
+				token !== undefined ||
+				projects !== undefined ||
+				ignored_branches !== undefined ||
+				base_url !== undefined ||
+				model !== undefined;
+			if (!hasUpdate) {
 				return NextResponse.json(
 					{ error: { message: 'Nothing to update' } },
 					{ status: 400 },
@@ -115,19 +160,27 @@ export async function PUT(request: NextRequest) {
 			}
 
 			const service = new IntegrationsService();
+			const existingList = await service.listUserIntegrationsByType(
+				session.user.id,
+				'repository',
+			);
+			const isRepoIntegration = existingList.some((i) => i.id === id);
 			const updateData: Record<string, unknown> = {};
 			if (provider !== undefined) updateData.provider = provider;
 			if (token !== undefined) {
 				updateData.token = token;
-				updateData.status = 'pending';
+				if (isRepoIntegration) updateData.status = 'pending';
 			}
 			if (projects !== undefined) updateData.projects = projects;
 			if (ignored_branches !== undefined)
 				updateData.ignored_branches = ignored_branches;
+			if (base_url !== undefined)
+				updateData.base_url = base_url?.replace(/\/$/, '') ?? null;
+			if (model !== undefined) updateData.model = model ?? null;
 
 			await service.updateIntegration(session.user.id, id, updateData);
 
-			if (token) {
+			if (token !== undefined && isRepoIntegration) {
 				await publishJson({
 					service: 'IntegrationsService',
 					action: 'validateTokenStatus',
