@@ -1,6 +1,7 @@
 'use client';
-import Pusher from 'pusher-js';
-import { ReactNode, useEffect, useState } from 'react';
+
+import { getPusherClient } from '@/lib/pusher-client';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 
 interface IProps {
 	eventName: string;
@@ -18,27 +19,28 @@ export default function SocketClient({
 	onChange = null,
 }: IProps) {
 	const [data, setData] = useState<any>(initialData);
+	const onChangeRef = useRef(onChange);
+	onChangeRef.current = onChange;
 
 	useEffect(() => {
 		setData(initialData);
 	}, [initialData]);
 
 	useEffect(() => {
-		const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-			cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-		});
+		const pusher = getPusherClient();
+		if (!pusher) return;
 
 		const channel = pusher.subscribe(channelName);
-		channel.bind(eventName, (payload: any) => {
+		const handler = (payload: any) => {
 			setData(payload);
-			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-			onChange && onChange(payload);
-		});
+			onChangeRef.current?.(payload);
+		};
+		channel.bind(eventName, handler);
 		return () => {
-			channel.unbind(eventName);
+			channel.unbind(eventName, handler);
 			pusher.unsubscribe(channelName);
 		};
-	}, [eventName, channelName, onChange]);
+	}, [eventName, channelName]);
 
 	return render(data);
 }

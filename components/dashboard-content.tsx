@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import Pusher from 'pusher-js';
+import { getPusherClient } from '@/lib/pusher-client';
 import Link from 'next/link';
 import {
 	Copy,
@@ -95,11 +95,9 @@ function yesterdayISO(): string {
 function useReportReadySubscription(userId: string | undefined) {
 	const queryClient = useQueryClient();
 	useEffect(() => {
-		if (!userId || typeof process.env.NEXT_PUBLIC_PUSHER_KEY === 'undefined')
-			return;
-		const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
-			cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? 'us2',
-		});
+		if (!userId) return;
+		const pusher = getPusherClient();
+		if (!pusher) return;
 		const channel = pusher.subscribe(`reports-${userId}`);
 		const handler = () => {
 			queryClient.invalidateQueries({ queryKey: ['reports'] });
