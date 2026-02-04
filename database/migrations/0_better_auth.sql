@@ -1,15 +1,51 @@
-create table `user` (`id` varchar(36) not null primary key, `name` varchar(255) not null, `email` varchar(255) not null unique, `emailVerified` boolean not null, `image` text, `createdAt` timestamp(3) default CURRENT_TIMESTAMP(3) not null, `updatedAt` timestamp(3) default CURRENT_TIMESTAMP(3) not null);
+CREATE TABLE "user" (
+  "id" VARCHAR(36) NOT NULL PRIMARY KEY,
+  "name" VARCHAR(255) NOT NULL,
+  "email" VARCHAR(255) NOT NULL UNIQUE,
+  "emailVerified" BOOLEAN NOT NULL,
+  "image" TEXT,
+  "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
 
-create table `session` (`id` varchar(36) not null primary key, `expiresAt` timestamp(3) not null, `token` varchar(255) not null unique, `createdAt` timestamp(3) default CURRENT_TIMESTAMP(3) not null, `updatedAt` timestamp(3) not null, `ipAddress` text, `userAgent` text, `userId` varchar(36) not null references `user` (`id`) on delete cascade);
+CREATE TABLE "session" (
+  "id" VARCHAR(36) NOT NULL PRIMARY KEY,
+  "expiresAt" TIMESTAMP(3) NOT NULL,
+  "token" VARCHAR(255) NOT NULL UNIQUE,
+  "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  "ipAddress" TEXT,
+  "userAgent" TEXT,
+  "userId" VARCHAR(36) NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE
+);
 
-create table `account` (`id` varchar(36) not null primary key, `accountId` text not null, `providerId` text not null, `userId` varchar(36) not null references `user` (`id`) on delete cascade, `accessToken` text, `refreshToken` text, `idToken` text, `accessTokenExpiresAt` timestamp(3), `refreshTokenExpiresAt` timestamp(3), `scope` text, `password` text, `createdAt` timestamp(3) default CURRENT_TIMESTAMP(3) not null, `updatedAt` timestamp(3) not null);
+CREATE TABLE "account" (
+  "id" VARCHAR(36) NOT NULL PRIMARY KEY,
+  "accountId" TEXT NOT NULL,
+  "providerId" TEXT NOT NULL,
+  "userId" VARCHAR(36) NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
+  "accessToken" TEXT,
+  "refreshToken" TEXT,
+  "idToken" TEXT,
+  "accessTokenExpiresAt" TIMESTAMP(3),
+  "refreshTokenExpiresAt" TIMESTAMP(3),
+  "scope" TEXT,
+  "password" TEXT,
+  "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  "updatedAt" TIMESTAMP(3) NOT NULL
+);
 
-create table `verification` (`id` varchar(36) not null primary key, `identifier` varchar(255) not null, `value` text not null, `expiresAt` timestamp(3) not null, `createdAt` timestamp(3) default CURRENT_TIMESTAMP(3) not null, `updatedAt` timestamp(3) default CURRENT_TIMESTAMP(3) not null);
+CREATE TABLE "verification" (
+  "id" VARCHAR(36) NOT NULL PRIMARY KEY,
+  "identifier" VARCHAR(255) NOT NULL,
+  "value" TEXT NOT NULL,
+  "expiresAt" TIMESTAMP(3) NOT NULL,
+  "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  "updatedAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
 
-create index `session_userId_idx` on `session` (`userId`);
-
-create index `account_userId_idx` on `account` (`userId`);
-create index `account_userId_providerId_idx` on `account` (`userId`, `providerId`(128));
-
-create index `verification_identifier_idx` on `verification` (`identifier`);
-create index `verification_value_idx` on `verification` (`value`(255));
+CREATE INDEX "session_userId_idx" ON "session" ("userId");
+CREATE INDEX "account_userId_idx" ON "account" ("userId");
+CREATE INDEX "account_userId_providerId_idx" ON "account" ("userId", "providerId");
+CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");
+CREATE INDEX "verification_value_idx" ON "verification" ("value");

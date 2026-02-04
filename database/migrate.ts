@@ -6,25 +6,19 @@ import { database } from './connection';
 async function dropAllTables() {
 	console.log('Dropping all tables...');
 
-	await database.query('SET FOREIGN_KEY_CHECKS = 0');
+	const result = await database.query<{ tablename: string }>(
+		`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`,
+	);
+	const tables = result.rows ?? [];
 
-	try {
-		const [tables] = await database.query<any[]>(
-			'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()',
-		);
-
-		if (tables && tables.length > 0) {
-			for (const table of tables) {
-				const tableName = table.TABLE_NAME;
-				console.log(`Dropping table: ${tableName}`);
-				await database.query(`DROP TABLE IF EXISTS \`${tableName}\``);
-			}
-			console.log(`Dropped ${tables.length} table(s)`);
-		} else {
-			console.log('No tables to drop');
+	if (tables.length > 0) {
+		for (const { tablename } of tables) {
+			console.log(`Dropping table: ${tablename}`);
+			await database.query(`DROP TABLE IF EXISTS "${tablename}" CASCADE`);
 		}
-	} finally {
-		await database.query('SET FOREIGN_KEY_CHECKS = 1');
+		console.log(`Dropped ${tables.length} table(s)`);
+	} else {
+		console.log('No tables to drop');
 	}
 
 	console.log('All tables dropped successfully');
@@ -34,8 +28,12 @@ async function migrate() {
 	const args = process.argv.slice(2);
 	const isFresh = args.includes('fresh');
 
-	const [dbInfo] = await database.query<any[]>('SELECT DATABASE() as db');
-	console.log(`Connected to database: ${dbInfo[0]?.db || 'unknown'}`);
+	const result = await database.query<{ current_database: string }>(
+		'SELECT current_database() as current_database',
+	);
+	console.log(
+		`Connected to database: ${result.rows[0]?.current_database ?? 'unknown'}`,
+	);
 
 	if (isFresh) {
 		console.log(
@@ -45,21 +43,23 @@ async function migrate() {
 	}
 
 	await database.query(`
-        CREATE TABLE IF NOT EXISTS migrations (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL UNIQUE,
-            executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
+		CREATE TABLE IF NOT EXISTS migrations (
+			id BIGSERIAL PRIMARY KEY,
+			name VARCHAR(255) NOT NULL UNIQUE,
+			executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`);
 
 	const dir = path.join(process.cwd(), 'database/migrations');
 	const files = fs.readdirSync(dir).sort();
 
-	const [rows] = await database.query('SELECT name FROM migrations');
-
-	const executed = new Set((rows as any[]).map((r) => r.name));
+	const executedResult = await database.query<{ name: string }>(
+		'SELECT name FROM migrations',
+	);
+	const executed = new Set((executedResult.rows ?? []).map((r) => r.name));
 
 	for (const file of files) {
+		if (!file.endsWith('.sql')) continue;
 		if (!isFresh && executed.has(file)) {
 			console.log(`Skipping already executed migration: ${file}`);
 			continue;
@@ -84,8 +84,10 @@ async function migrate() {
 			if (statement.trim()) {
 				try {
 					await database.query(statement);
-				} catch (error: any) {
-					console.error(`Error executing statement ${i + 1}:`, error.message);
+				} catch (error: unknown) {
+					const message =
+						error instanceof Error ? error.message : String(error);
+					console.error(`Error executing statement ${i + 1}:`, message);
 					console.error(`Full statement: ${statement}`);
 					throw error;
 				}
@@ -93,7 +95,7 @@ async function migrate() {
 		}
 
 		if (!executed.has(file)) {
-			await database.query('INSERT INTO migrations (name) VALUES (?)', [file]);
+			await database.query('INSERT INTO migrations (name) VALUES ($1)', [file]);
 		}
 	}
 

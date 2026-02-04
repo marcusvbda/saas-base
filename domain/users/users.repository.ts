@@ -9,7 +9,8 @@ type BillingData = {
 };
 const userColumns =
 	'`id`, `name`, `email`, `emailVerified`, `image`, `createdAt`, `updatedAt`';
-const verificationColumns = '`id`, `identifier`, `value`, `expiresAt`, `createdAt`, `updatedAt`';
+const verificationColumns =
+	'`id`, `identifier`, `value`, `expiresAt`, `createdAt`, `updatedAt`';
 const userBillingColumns =
 	'`id`, `user_id`, `card_number`, `card_holder_name`, `card_expiry_month`, `card_expiry_year`, `card_cvv`';
 const userSubscriptionColumns =
@@ -32,14 +33,14 @@ export default class UserRepository extends Repository {
 
 	async updatePassword(userId: string, hashedPassword: string) {
 		await this.execute(
-			"UPDATE `account` SET `password` = :password, `updatedAt` = CURRENT_TIMESTAMP(3) WHERE `userId` = :userId AND `providerId` = 'credential'",
+			"UPDATE `account` SET `password` = :password, `updatedAt` = CURRENT_TIMESTAMP WHERE `userId` = :userId AND `providerId` = 'credential'",
 			{ password: hashedPassword, userId },
 		);
 	}
 
 	async createUserVerification(userId: string, token: string) {
 		await this.execute(
-			'INSERT INTO `verification` (`id`, `identifier`, `value`, `expiresAt`) VALUES (UUID(), :identifier, :value, DATE_ADD(NOW(), INTERVAL 1 HOUR))',
+			"INSERT INTO `verification` (`id`, `identifier`, `value`, `expiresAt`) VALUES (gen_random_uuid(), :identifier, :value, NOW() + INTERVAL '1 hour')",
 			{
 				identifier: `reset-password:${userId}`,
 				value: token,
@@ -191,7 +192,7 @@ export default class UserRepository extends Repository {
 				status: data.status ?? 'active',
 				current_period_start: data.current_period_start ?? null,
 				current_period_end: data.current_period_end ?? null,
-				cancel_at_period_end: data.cancel_at_period_end ? 1 : 0,
+				cancel_at_period_end: data.cancel_at_period_end ?? false,
 			},
 		);
 	}
@@ -225,7 +226,7 @@ export default class UserRepository extends Repository {
 			if (v === undefined) continue;
 			if (k === 'cancel_at_period_end') {
 				updates.push('`cancel_at_period_end` = :cancel_at_period_end');
-				params.cancel_at_period_end = v ? 1 : 0;
+				params.cancel_at_period_end = Boolean(v);
 				continue;
 			}
 			updates.push(`\`${k}\` = :${k}`);
@@ -240,5 +241,4 @@ export default class UserRepository extends Repository {
 			params,
 		);
 	}
-
 }

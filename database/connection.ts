@@ -1,26 +1,27 @@
-import { createPool, Pool } from 'mysql2/promise';
+import { Pool } from 'pg';
 
 const poolConfig = {
-	host: process.env.MYSQL_HOST || 'localhost',
-	port: parseInt(process.env.MYSQL_PORT || '3306'),
-	user: process.env.MYSQL_USER || 'root',
-	password: process.env.MYSQL_PASSWORD || '',
-	database: process.env.MYSQL_DATABASE || 'db',
-	namedPlaceholders: true,
-	connectionLimit: parseInt(process.env.MYSQL_CONNECTION_LIMIT || '10'),
-	queueLimit: parseInt(process.env.MYSQL_QUEUE_LIMIT || '0'),
-	waitForConnections: true,
-	enableKeepAlive: true,
-	keepAliveInitialDelay: 0,
+	host: process.env.PG_HOST || 'localhost',
+	port: parseInt(process.env.PG_PORT || '5432'),
+	user: process.env.PG_USER || 'postgres',
+	password: process.env.PG_PASSWORD || '',
+	database: process.env.PG_DATABASE || 'db',
+	max: parseInt(process.env.PG_CONNECTION_LIMIT || '10'),
+	idleTimeoutMillis: 30000,
+	connectionTimeoutMillis: 2000,
 };
 
-export const database: Pool = createPool(poolConfig);
+export const database: Pool = new Pool(
+	process.env.DATABASE_URL
+		? { connectionString: process.env.DATABASE_URL }
+		: poolConfig,
+);
 
 if (typeof process !== 'undefined') {
 	const shutdown = async () => {
 		try {
 			await database?.end();
-		} catch (_error: any) {
+		} catch {
 			//
 		}
 	};

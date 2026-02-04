@@ -1,4 +1,3 @@
--- AI integrations: base_url and optional model (OpenAI-compatible endpoints)
-alter table `repository_integrations`
-  add column `base_url` varchar(500) null,
-  add column `model` varchar(100) null;
+ALTER TABLE "repository_integrations"
+  ADD COLUMN "base_url" VARCHAR(500) NULL,
+  ADD COLUMN "model" VARCHAR(100) NULL;

@@ -1,13 +1,13 @@
-create table `checkout_sessions` (
-  `id` int not null auto_increment primary key,
-  `session_id` varchar(255) not null,
-  `resource_id` varchar(255) not null,
-  `status` varchar(255) not null default 'pending',
-  `resource_type` varchar(255) not null,
-  `created_at` datetime not null default current_timestamp,
-  `updated_at` datetime not null default current_timestamp on update current_timestamp
+CREATE TABLE "checkout_sessions" (
+  "id" SERIAL PRIMARY KEY,
+  "session_id" VARCHAR(255) NOT NULL,
+  "resource_id" VARCHAR(255) NOT NULL,
+  "status" VARCHAR(255) NOT NULL DEFAULT 'pending',
+  "resource_type" VARCHAR(255) NOT NULL,
+  "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-create unique index `checkout_sessions_session_id_idx` on `checkout_sessions` (`session_id`);
-create index `checkout_sessions_resource_type_resource_id_idx` on `checkout_sessions` (`resource_type`, `resource_id`);
-create index `checkout_sessions_created_at_idx` on `checkout_sessions` (`created_at`);
+CREATE UNIQUE INDEX "checkout_sessions_session_id_idx" ON "checkout_sessions" ("session_id");
+CREATE INDEX "checkout_sessions_resource_type_resource_id_idx" ON "checkout_sessions" ("resource_type", "resource_id");
+CREATE INDEX "checkout_sessions_created_at_idx" ON "checkout_sessions" ("created_at");

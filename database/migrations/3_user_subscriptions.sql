@@ -1,13 +1,12 @@
-create table `user_subscriptions` (
-  `id` int not null auto_increment primary key,
-  `user_id` varchar(36) not null,
-  `subscription_id` varchar(255) not null,
-  `plan` varchar(255) not null,
-  `created_at` datetime not null default current_timestamp,
-  `updated_at` datetime not null default current_timestamp on update current_timestamp,
-  foreign key (`user_id`) references `user`(`id`) on delete cascade
+CREATE TABLE "user_subscriptions" (
+  "id" SERIAL PRIMARY KEY,
+  "user_id" VARCHAR(36) NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
+  "subscription_id" VARCHAR(255) NOT NULL,
+  "plan" VARCHAR(255) NOT NULL,
+  "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-create index `user_subscriptions_user_id_idx` on `user_subscriptions` (`user_id`);
-create index `user_subscriptions_subscription_id_idx` on `user_subscriptions` (`subscription_id`);
-create index `user_subscriptions_user_updated_idx` on `user_subscriptions` (`user_id`, `updated_at`);
+CREATE INDEX "user_subscriptions_user_id_idx" ON "user_subscriptions" ("user_id");
+CREATE INDEX "user_subscriptions_subscription_id_idx" ON "user_subscriptions" ("subscription_id");
+CREATE INDEX "user_subscriptions_user_updated_idx" ON "user_subscriptions" ("user_id", "updated_at");

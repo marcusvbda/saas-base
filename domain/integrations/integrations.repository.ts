@@ -73,28 +73,22 @@ export default class IntegrationsRepository extends Repository {
 	}
 
 	async findAllByUserId(userId: string) {
-		return await this.db
-			.execute(
-				`SELECT ${this.columns} FROM \`repository_integrations\` WHERE \`user_id\` = :userId ORDER BY \`created_at\` DESC`,
-				{ userId },
-			)
-			.then(([rows]: unknown[]) =>
-				(rows as any[]).map((row) => this.parseIntegration(row)),
-			);
+		const rows = await this.findMany(
+			`SELECT ${this.columns} FROM \`repository_integrations\` WHERE \`user_id\` = :userId ORDER BY \`created_at\` DESC`,
+			{ userId },
+		);
+		return rows.map((row) => this.parseIntegration(row));
 	}
 
 	async findAllByUserIdAndType(
 		userId: string,
 		type: RepositoryIntegrationType,
 	): Promise<RepositoryIntegration[]> {
-		return await this.db
-			.execute(
-				`SELECT ${this.columns} FROM \`repository_integrations\` WHERE \`user_id\` = :userId AND \`type\` = :type ORDER BY \`created_at\` DESC`,
-				{ userId, type },
-			)
-			.then(([rows]: unknown[]) =>
-				(rows as any[]).map((row) => this.parseIntegration(row)),
-			);
+		const rows = await this.findMany(
+			`SELECT ${this.columns} FROM \`repository_integrations\` WHERE \`user_id\` = :userId AND \`type\` = :type ORDER BY \`created_at\` DESC`,
+			{ userId, type },
+		);
+		return rows.map((row) => this.parseIntegration(row));
 	}
 
 	async findFirstByUserIdAndType(
@@ -121,7 +115,7 @@ export default class IntegrationsRepository extends Repository {
 		const status = type === 'ai' ? 'connected' : 'pending';
 		const result = (await this.execute(
 			`INSERT INTO \`repository_integrations\` (\`user_id\`, \`provider\`, \`type\`, \`token\`, \`status\`, \`projects\`, \`ignored_branches\`, \`base_url\`, \`model\`)
-       VALUES (:userId, :provider, :type, :token, :status, :projects, :ignored_branches, :base_url, :model)`,
+       VALUES (:userId, :provider, :type, :token, :status, :projects, :ignored_branches, :base_url, :model) RETURNING id`,
 			{
 				userId,
 				provider: data.provider,

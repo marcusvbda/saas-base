@@ -47,11 +47,7 @@ export default class ReportsRepository extends Repository {
 		userId: string,
 		reportDate: string,
 	): Promise<DailyReport | null> {
-		return this.findByUserAndReportAndFrom(
-			userId,
-			reportDate,
-			reportDate,
-		);
+		return this.findByUserAndReportAndFrom(userId, reportDate, reportDate);
 	}
 
 	async findByUserAndReportAndFrom(
@@ -66,12 +62,10 @@ export default class ReportsRepository extends Repository {
 	}
 
 	async findAllByUserId(userId: string): Promise<DailyReport[]> {
-		return this.db
-			.execute(
-				`SELECT ${this.columns} FROM \`daily_reports\` WHERE \`user_id\` = :userId ORDER BY \`report_date\` DESC`,
-				{ userId },
-			)
-			.then(([rows]: unknown[]) => rows as DailyReport[]);
+		return this.findMany(
+			`SELECT ${this.columns} FROM \`daily_reports\` WHERE \`user_id\` = :userId ORDER BY \`report_date\` DESC`,
+			{ userId },
+		) as Promise<DailyReport[]>;
 	}
 
 	async findAllByUserIdAndDateRange(
@@ -79,18 +73,13 @@ export default class ReportsRepository extends Repository {
 		fromDate: string,
 		toDate: string,
 	): Promise<DailyReport[]> {
-		return this.db
-			.execute(
-				`SELECT ${this.columns} FROM \`daily_reports\` WHERE \`user_id\` = :userId AND \`report_date\` >= :fromDate AND \`report_date\` <= :toDate ORDER BY \`report_date\` ASC`,
-				{ userId, fromDate, toDate },
-			)
-			.then(([rows]: unknown[]) => rows as DailyReport[]);
+		return this.findMany(
+			`SELECT ${this.columns} FROM \`daily_reports\` WHERE \`user_id\` = :userId AND \`report_date\` >= :fromDate AND \`report_date\` <= :toDate ORDER BY \`report_date\` ASC`,
+			{ userId, fromDate, toDate },
+		) as Promise<DailyReport[]>;
 	}
 
-	async upsert(
-		userId: string,
-		data: DailyReportInput,
-	): Promise<number> {
+	async upsert(userId: string, data: DailyReportInput): Promise<number> {
 		const status = data.status ?? 'ready';
 		const fromDate = data.from_date ?? data.report_date;
 		const existing = await this.findByUserAndReportAndFrom(
@@ -130,7 +119,7 @@ export default class ReportsRepository extends Repository {
 			? ':userId, :reportDate, :fromDate, :content, :status, CURRENT_TIMESTAMP'
 			: ':userId, :reportDate, :fromDate, :content, :status';
 		const result = (await this.execute(
-			`INSERT INTO \`daily_reports\` (${insertColumns}) VALUES (${insertValues})`,
+			`INSERT INTO \`daily_reports\` (${insertColumns}) VALUES (${insertValues}) RETURNING id`,
 			{
 				userId,
 				reportDate: data.report_date,

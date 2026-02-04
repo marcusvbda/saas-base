@@ -86,12 +86,6 @@ function todayISO(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
-function yesterdayISO(): string {
-	const d = new Date();
-	d.setDate(d.getDate() - 1);
-	return d.toISOString().slice(0, 10);
-}
-
 function useReportReadySubscription(userId: string | undefined) {
 	const queryClient = useQueryClient();
 	useEffect(() => {
@@ -116,7 +110,7 @@ export default function DashboardContent() {
 	const userId = session?.user?.id;
 	const queryClient = useQueryClient();
 
-	const [fromDate, setFromDate] = useState(yesterdayISO);
+	const [fromDate, setFromDate] = useState(todayISO);
 	const [toDate, setToDate] = useState(todayISO);
 
 	const { data: integrations = [], isLoading: integrationsLoading } = useQuery({

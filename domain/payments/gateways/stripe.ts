@@ -11,16 +11,21 @@ export type CheckoutSessionOptions = {
 };
 
 export default class StripeGateway {
-	private stripe: Stripe;
+	private stripe?: Stripe;
 
 	constructor() {
-		this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+		if (process.env.STRIPE_SECRET_KEY) {
+			this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+		}
 	}
 
 	async findOrCreateCustomer(
 		email: string,
 		metadata?: Record<string, string>,
 	): Promise<string> {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		const existing = await this.stripe.customers.list({
 			email,
 			limit: 1,
@@ -40,6 +45,9 @@ export default class StripeGateway {
 	 * Stripe does not allow mixing currencies on a single customer.
 	 */
 	async getCustomerCurrency(customerId: string): Promise<string | null> {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		const subscriptions = await this.stripe.subscriptions.list({
 			customer: customerId,
 			status: 'all',
@@ -51,6 +59,9 @@ export default class StripeGateway {
 	}
 
 	async createSessionCheckout(options: CheckoutSessionOptions) {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		const {
 			mode,
 			items,
@@ -61,7 +72,8 @@ export default class StripeGateway {
 		} = options;
 
 		const baseUrl =
-			process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000';
+			process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
+			'http://localhost:3000';
 		const returnUrl = `${baseUrl}/api/checkout/callback?session_id={CHECKOUT_SESSION_ID}`;
 
 		const sessionParams: Stripe.Checkout.SessionCreateParams = {
@@ -86,6 +98,9 @@ export default class StripeGateway {
 	}
 
 	async findProductByName(name: string) {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		const existingProducts = await this.stripe.products.search({
 			query: `name:'${name}' AND active:'true'`,
 			limit: 1,
@@ -96,6 +111,9 @@ export default class StripeGateway {
 	}
 
 	async createProduct(name: string) {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		const product = await this.stripe.products.create({
 			name,
 			active: true,
@@ -109,6 +127,9 @@ export default class StripeGateway {
 		currency: string,
 		interval: string,
 	) {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		const amountInCents = amount * 100;
 		const normalizedCurrency = currency.toLowerCase();
 		let allPrices: Stripe.Price[] = [];
@@ -152,6 +173,9 @@ export default class StripeGateway {
 		currency: string,
 		interval: string,
 	) {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		const payload: any = {
 			product: productId,
 			unit_amount: amount * 100,
@@ -171,6 +195,9 @@ export default class StripeGateway {
 		currency: string,
 		interval: string,
 	) {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		let productId = await this.findProductByName(name);
 		if (!productId) {
 			productId = await this.createProduct(name);
@@ -189,6 +216,9 @@ export default class StripeGateway {
 	}
 
 	async retrieveSessionCheckout(sessionId: string) {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		const session = await this.stripe.checkout.sessions.retrieve(sessionId);
 		return session;
 	}
@@ -197,6 +227,9 @@ export default class StripeGateway {
 		subscriptionId: string,
 		cancelAtPeriodEnd = true,
 	): Promise<void> {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		if (cancelAtPeriodEnd) {
 			await this.stripe.subscriptions.update(subscriptionId, {
 				cancel_at_period_end: true,
@@ -207,6 +240,9 @@ export default class StripeGateway {
 	}
 
 	async reactivateSubscription(subscriptionId: string): Promise<void> {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		await this.stripe.subscriptions.update(subscriptionId, {
 			cancel_at_period_end: false,
 		});
@@ -217,6 +253,9 @@ export default class StripeGateway {
 		newPriceId: string,
 		metadata?: Record<string, string>,
 	): Promise<void> {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
 		const itemId = sub.items.data[0]?.id;
 		if (!itemId) {
@@ -238,6 +277,9 @@ export default class StripeGateway {
 	}
 
 	async retrieveInvoice(invoiceId: string) {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		const invoice = await this.stripe.invoices.retrieve(invoiceId);
 		return invoice;
 	}
@@ -245,6 +287,9 @@ export default class StripeGateway {
 	async retrieveSubscription(
 		subscriptionId: string,
 	): Promise<Stripe.Subscription> {
+		if (!this.stripe) {
+			throw new Error('Stripe not initialized');
+		}
 		const subscription =
 			await this.stripe.subscriptions.retrieve(subscriptionId);
 		return subscription as Stripe.Subscription;

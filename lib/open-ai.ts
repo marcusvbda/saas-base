@@ -32,13 +32,19 @@ export type AIConfig = {
 	model: string;
 };
 
-async function createChatCompletionWithConfig(
-	messages: ChatMessage[],
-	config: AIConfig,
-): Promise<string> {
-	try {
+const COMPLETION_TIMEOUT_MS = 120_000;
+const clientCache = new Map<string, OpenAI>();
+
+function clientCacheKey(config: AIConfig): string {
+	return `${config.baseURL}:${config.model}:${config.apiKey.slice(0, 8)}`;
+}
+
+function getClient(config: AIConfig): OpenAI {
+	const key = clientCacheKey(config);
+	let client = clientCache.get(key);
+	if (!client) {
 		const isOpenRouter = config.baseURL.includes('openrouter.ai');
-		const client = new OpenAI({
+		client = new OpenAI({
 			apiKey: config.apiKey,
 			baseURL: config.baseURL,
 			...(isOpenRouter && {
@@ -48,10 +54,30 @@ async function createChatCompletionWithConfig(
 				},
 			}),
 		});
-		const completion = await client.chat.completions.create({
-			model: config.model,
-			messages: messages.map((m) => ({ role: m.role, content: m.content })),
-		});
+		clientCache.set(key, client);
+	}
+	return client;
+}
+
+async function createChatCompletionWithConfig(
+	messages: ChatMessage[],
+	config: AIConfig,
+): Promise<string> {
+	try {
+		const client = getClient(config);
+		const controller = new AbortController();
+		const timeoutId = setTimeout(
+			() => controller.abort(),
+			COMPLETION_TIMEOUT_MS,
+		);
+		const completion = await client.chat.completions.create(
+			{
+				model: config.model,
+				messages: messages.map((m) => ({ role: m.role, content: m.content })),
+			},
+			{ signal: controller.signal },
+		);
+		clearTimeout(timeoutId);
 		const result = completion.choices[0]?.message?.content?.trim();
 		if (!result) {
 			throw new InfrastructureError(
@@ -61,6 +87,11 @@ async function createChatCompletionWithConfig(
 		return result;
 	} catch (err) {
 		if (err instanceof InfrastructureError) throw err;
+		if (err instanceof Error && err.name === 'AbortError') {
+			throw new InfrastructureError(
+				'AI request timed out. The report may be too long; try again or use a shorter report.',
+			);
+		}
 		if (process.env.NODE_ENV !== 'production') {
 			console.error('[open-ai]', err);
 		}

@@ -57,7 +57,7 @@ export default class UserService {
 		// Transação para garantir atomicidade: update + delete devem ser atômicos
 		await this.repository.transaction(async (connection) => {
 			await connection.execute(
-				"UPDATE `account` SET `password` = :password, `updatedAt` = CURRENT_TIMESTAMP(3) WHERE `userId` = :userId AND `providerId` = 'credential'",
+				"UPDATE `account` SET `password` = :password, `updatedAt` = CURRENT_TIMESTAMP WHERE `userId` = :userId AND `providerId` = 'credential'",
 				{ password: hashedPassword, userId },
 			);
 			await connection.execute(
@@ -135,16 +135,21 @@ export default class UserService {
 		if (!sub) return defaultResult;
 
 		const status = (sub as { status?: string }).status ?? 'active';
-		const cancelAtPeriodEnd = Boolean((sub as { cancel_at_period_end?: number })?.cancel_at_period_end);
-		const currentPeriodEnd = (sub as { current_period_end?: Date | null })?.current_period_end
+		const cancelAtPeriodEnd = Boolean(
+			(sub as { cancel_at_period_end?: number })?.cancel_at_period_end,
+		);
+		const currentPeriodEnd = (sub as { current_period_end?: Date | null })
+			?.current_period_end
 			? new Date((sub as { current_period_end: Date }).current_period_end)
 			: null;
 
 		const hasAccess =
 			status === 'active' ||
 			status === 'trialing' ||
-			(status === 'canceled' && currentPeriodEnd != null && currentPeriodEnd > now) ||
-			(status === 'past_due');
+			(status === 'canceled' &&
+				currentPeriodEnd != null &&
+				currentPeriodEnd > now) ||
+			status === 'past_due';
 
 		const plan = (sub as { plan?: string }).plan ?? 'free';
 		const detail = {
@@ -179,7 +184,10 @@ export default class UserService {
 	async cancelSubscription(
 		userId: string,
 		cancelAtPeriodEnd = true,
-	): Promise<{ cancelAtPeriodEnd: boolean; currentPeriodEnd: Date | null } | null> {
+	): Promise<{
+		cancelAtPeriodEnd: boolean;
+		currentPeriodEnd: Date | null;
+	} | null> {
 		const subscription = await this.getSubscriptionByUserId(userId);
 		if (!subscription) return null;
 		await this.gateway.cancelSubscription(

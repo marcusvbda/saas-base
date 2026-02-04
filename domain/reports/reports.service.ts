@@ -432,11 +432,15 @@ export default class ReportsService {
 				await this.integrationsRepo.findFirstByUserIdAndType(userId, 'ai');
 			if (aiIntegration?.base_url?.trim() && aiIntegration.token?.trim()) {
 				try {
-					content = await enhanceReportContent(content, {
-						baseURL: aiIntegration.base_url,
-						token: aiIntegration.token,
-						model: aiIntegration.model,
-					});
+					content = await enhanceReportContent(
+						content,
+						{
+							baseURL: aiIntegration.base_url,
+							token: aiIntegration.token,
+							model: aiIntegration.model,
+						},
+						payload.locale,
+					);
 					enhanced = true;
 				} catch {
 					// Keep raw content if AI enhance fails

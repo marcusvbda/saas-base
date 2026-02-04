@@ -12,8 +12,8 @@ It must remain explicit, auditable, and predictable.
 
 ## Stack
 
-- MySQL
-- Raw SQL with named parameters
+- PostgreSQL
+- Raw SQL with named parameters (converted to $1, $2 in the repository layer)
 - No ORM (performance and control first)
 
 ---

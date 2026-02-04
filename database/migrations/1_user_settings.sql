@@ -1,8 +1,7 @@
-create table `user_settings` (
-  `id` int not null auto_increment primary key,
-  `user_id` varchar(36) not null,
-  `timezone` varchar(255),
-  foreign key (`user_id`) references `user`(`id`) on delete cascade
+CREATE TABLE "user_settings" (
+  "id" SERIAL PRIMARY KEY,
+  "user_id" VARCHAR(36) NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
+  "timezone" VARCHAR(255)
 );
 
-create index `user_settings_user_id_idx` on `user_settings` (`user_id`);
+CREATE INDEX "user_settings_user_id_idx" ON "user_settings" ("user_id");

@@ -1,17 +1,16 @@
-create table `repository_integrations` (
-  `id` int not null auto_increment primary key,
-  `user_id` varchar(36) not null,
-  `provider` varchar(50) not null,
-  `type` varchar(50) not null default 'repository',
-  `token` text not null,
-  `status` varchar(50) not null default 'pending',
-  `projects` json null comment 'Array of project IDs to include in reports',
-  `ignored_branches` json null comment 'Per-project branch names to ignore in reports',
-  `created_at` datetime not null default current_timestamp,
-  `updated_at` datetime not null default current_timestamp on update current_timestamp,
-  foreign key (`user_id`) references `user`(`id`) on delete cascade
+CREATE TABLE "repository_integrations" (
+  "id" SERIAL PRIMARY KEY,
+  "user_id" VARCHAR(36) NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
+  "provider" VARCHAR(50) NOT NULL,
+  "type" VARCHAR(50) NOT NULL DEFAULT 'repository',
+  "token" TEXT NOT NULL,
+  "status" VARCHAR(50) NOT NULL DEFAULT 'pending',
+  "projects" JSONB NULL,
+  "ignored_branches" JSONB NULL,
+  "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-create index `repository_integrations_user_id_idx` on `repository_integrations` (`user_id`);
-create index `repository_integrations_user_provider_idx` on `repository_integrations` (`user_id`, `provider`);
-create index `repository_integrations_user_type_idx` on `repository_integrations` (`user_id`, `type`);
+CREATE INDEX "repository_integrations_user_id_idx" ON "repository_integrations" ("user_id");
+CREATE INDEX "repository_integrations_user_provider_idx" ON "repository_integrations" ("user_id", "provider");
+CREATE INDEX "repository_integrations_user_type_idx" ON "repository_integrations" ("user_id", "type");

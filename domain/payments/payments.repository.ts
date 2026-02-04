@@ -3,7 +3,7 @@ import Repository from '@/database/repository';
 export default class PaymentsRepository extends Repository {
 	async createCheckoutSession(params: any) {
 		return await this.execute(
-			'INSERT INTO `checkout_sessions` (`session_id`, `resource_id`, `resource_type`) VALUES (:session_id, :resource_id, :resource_type)',
+			'INSERT INTO `checkout_sessions` (`session_id`, `resource_id`, `resource_type`) VALUES (:session_id, :resource_id, :resource_type) RETURNING id',
 			params,
 		);
 	}
@@ -42,7 +42,10 @@ export default class PaymentsRepository extends Repository {
 		);
 	}
 
-	async findCheckoutSessionByUserIdAndType(userId: string, resourceType: string) {
+	async findCheckoutSessionByUserIdAndType(
+		userId: string,
+		resourceType: string,
+	) {
 		return await this.findOne(
 			`SELECT ${this.columns} FROM \`checkout_sessions\` WHERE \`resource_id\` LIKE :userId AND \`resource_type\` = :resource_type ORDER BY \`created_at\` DESC LIMIT 1`,
 			{ userId: `${userId}%`, resource_type: resourceType },
