@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
 	env: {
 		NEXT_PUBLIC_PUSHER_KEY: process.env.PUSHER_KEY!,
 		NEXT_PUBLIC_PUSHER_CLUSTER: process.env.PUSHER_CLUSTER!,
+		NEXT_PUBLIC_CAN_REGISTER: process.env.CAN_REGISTER!,
 		NEXT_PUBLIC_GOOGLE_ENABLED:
 			process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
 				? 'true'

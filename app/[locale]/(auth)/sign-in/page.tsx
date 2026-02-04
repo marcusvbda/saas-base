@@ -148,15 +148,17 @@ const FragmentContent = () => {
 							{signInMutation.isPending ? t('Signing in…') : t('Login')}
 						</Button>
 						<SocialLoginProvider />
-						<p className="text-center text-sm text-muted-foreground">
-							{t(`Don't have an account`)}?{' '}
-							<LocaleLink
-								href="/register"
-								className="text-primary hover:underline font-medium"
-							>
-								{t('Create account')}
-							</LocaleLink>
-						</p>
+						{process.env.NEXT_PUBLIC_CAN_REGISTER === 'true' && (
+							<p className="text-center text-sm text-muted-foreground">
+								{t(`Don't have an account`)}?{' '}
+								<LocaleLink
+									href="/register"
+									className="text-primary hover:underline font-medium"
+								>
+									{t('Create account')}
+								</LocaleLink>
+							</p>
+						)}
 					</form>
 				</div>
 			</div>
