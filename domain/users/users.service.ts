@@ -24,15 +24,18 @@ export default class UserService {
 		const user = await this.repository.findByEmail(email);
 		if (!user) return;
 		const token = globalThis.crypto.randomUUID();
-		await this.repository.createUserVerification(user.id, token);
+		await this.repository.createUserVerification(
+			(user as { id: string }).id,
+			token,
+		);
 		const baseURL =
 			process.env.BETTER_AUTH_URL ||
 			process.env.NEXT_PUBLIC_APP_URL ||
 			'http://localhost:3000';
-		const url = `${baseURL}/update-password?token=${token}`;
+		const url = `${baseURL}/update-password?token=${token as string}`;
 		await resend.emails.send({
 			from: process.env.RESEND_FROM_EMAIL!,
-			to: user.email,
+			to: (user as { email: string }).email,
 			subject: 'Reset your password',
 			html: `URL : ${url}`,
 		});
@@ -48,8 +51,11 @@ export default class UserService {
 			await this.repository.findPasswordVerificationToken(token);
 		if (!verification) return false;
 
-		const userId = verification.identifier.replace('reset-password:', '');
-		const user = await this.repository.findById(userId);
+		const userId = (verification as { identifier: string }).identifier.replace(
+			'reset-password:',
+			'',
+		);
+		const user = await this.repository.findById(userId as string);
 		if (!user) return false;
 
 		const hashedPassword = await hashPassword(newPassword);
@@ -85,7 +91,7 @@ export default class UserService {
 		if (!user) {
 			throw new NotFoundError('User not found');
 		}
-		await this.repository.verifyUserById(user.id);
+		await this.repository.verifyUserById((user as { id: string }).id);
 	}
 
 	async updateUserData(userId: string, data: { name?: string }) {
@@ -99,7 +105,10 @@ export default class UserService {
 	async upsertBilling(userId: string, data: any) {
 		const billing = await this.repository.findBillingByUserId(userId);
 		if (billing) {
-			return await this.repository.updateBilling(billing.id, data);
+			return await this.repository.updateBilling(
+				(billing as { id: number }).id,
+				data,
+			);
 		}
 		await this.repository.createBilling(userId, data);
 	}
@@ -172,7 +181,10 @@ export default class UserService {
 	async upsertSubscription(userId: string, data: any) {
 		const subscription = await this.repository.getSubscriptionByUserId(userId);
 		if (subscription) {
-			return await this.repository.updateSubscription(subscription.id, data);
+			return await this.repository.updateSubscription(
+				(subscription as { id: number }).id,
+				data,
+			);
 		}
 		await this.repository.createSubscription(userId, data);
 	}
@@ -191,16 +203,22 @@ export default class UserService {
 		const subscription = await this.getSubscriptionByUserId(userId);
 		if (!subscription) return null;
 		await this.gateway.cancelSubscription(
-			subscription.subscription_id,
+			(subscription as { subscription_id: string }).subscription_id,
 			cancelAtPeriodEnd,
 		);
 		if (cancelAtPeriodEnd) {
-			await this.repository.updateSubscription(subscription.id, {
-				cancel_at_period_end: true,
-			});
+			await this.repository.updateSubscription(
+				(subscription as { id: number }).id,
+				{
+					cancel_at_period_end: true,
+				},
+			);
 		}
-		const end = subscription.current_period_end
-			? new Date(subscription.current_period_end)
+		const end = (subscription as { current_period_end: Date | null })
+			?.current_period_end
+			? new Date(
+					(subscription as { current_period_end: Date }).current_period_end,
+				)
 			: null;
 		return { cancelAtPeriodEnd, currentPeriodEnd: end };
 	}
@@ -215,9 +233,15 @@ export default class UserService {
 
 	async reactivateSubscription(userId: string): Promise<boolean> {
 		const sub = await this.repository.getSubscriptionByUserId(userId);
-		if (!sub || !sub.cancel_at_period_end) return false;
-		await this.gateway.reactivateSubscription(sub.subscription_id);
-		await this.repository.updateSubscription(sub.id, {
+		if (
+			!sub ||
+			!(sub as { cancel_at_period_end: boolean })?.cancel_at_period_end
+		)
+			return false;
+		await this.gateway.reactivateSubscription(
+			(sub as { subscription_id: string }).subscription_id,
+		);
+		await this.repository.updateSubscription((sub as { id: number }).id, {
 			cancel_at_period_end: false,
 		});
 		return true;
@@ -226,7 +250,9 @@ export default class UserService {
 	async updateSubscriptionStatus(userId: string, status: string) {
 		const sub = await this.repository.getSubscriptionByUserId(userId);
 		if (sub) {
-			await this.repository.updateSubscription(sub.id, { status });
+			await this.repository.updateSubscription((sub as { id: number }).id, {
+				status,
+			});
 		}
 	}
 

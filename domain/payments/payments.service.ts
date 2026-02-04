@@ -87,8 +87,7 @@ export default class PaymentsService {
 			const existingCurrency =
 				await this.gateway.getCustomerCurrency(customerId);
 			if (existingCurrency) {
-				currency =
-					existingCurrency === 'brl' ? 'BRL' : 'USD';
+				currency = existingCurrency === 'brl' ? 'BRL' : 'USD';
 			}
 		}
 
@@ -147,9 +146,7 @@ export default class PaymentsService {
 		_requestCurrency: 'BRL' | 'USD',
 	): Promise<void> {
 		if (newPlan === DEFAULT_PLAN) {
-			throw new BusinessRuleError(
-				'Use cancel subscription to switch to free',
-			);
+			throw new BusinessRuleError('Use cancel subscription to switch to free');
 		}
 		const subscription = await this.userService.getSubscriptionByUserId(userId);
 		if (!subscription) {
@@ -175,13 +172,13 @@ export default class PaymentsService {
 		}
 
 		const stripeSub = await this.gateway.retrieveSubscription(
-			subscription.subscription_id,
+			(subscription?.subscription_id as string) ?? '',
 		);
-		const firstItem = (stripeSub as { items?: { data?: { price?: { currency?: string } }[] } })
-			?.items?.data?.[0];
+		const firstItem = (
+			stripeSub as { items?: { data?: { price?: { currency?: string } }[] } }
+		)?.items?.data?.[0];
 		const currencyCode = (firstItem?.price?.currency ?? 'usd').toUpperCase();
-		const currency: 'BRL' | 'USD' =
-			currencyCode === 'BRL' ? 'BRL' : 'USD';
+		const currency: 'BRL' | 'USD' = currencyCode === 'BRL' ? 'BRL' : 'USD';
 
 		const planConfig = PLANS.find((p) => p.id === newPlan);
 		if (!planConfig) {
@@ -195,23 +192,26 @@ export default class PaymentsService {
 			'month',
 		);
 		await this.gateway.updateSubscription(
-			subscription.subscription_id,
+			(subscription?.subscription_id as string) ?? '',
 			priceId,
-			{ resource_id: `${userId}|${newPlan}`, resource_type: 'plan_subscription' },
+			{
+				resource_id: `${userId}|${newPlan}`,
+				resource_type: 'plan_subscription',
+			},
 		);
 
 		const updatedSub = await this.gateway.retrieveSubscription(
-			subscription.subscription_id,
+			(subscription?.subscription_id as string) ?? '',
 		);
 		const start = (updatedSub as { current_period_start?: number })
 			.current_period_start;
-		const end = (updatedSub as { current_period_end?: number }).current_period_end;
+		const end = (updatedSub as { current_period_end?: number })
+			.current_period_end;
 
 		await this.userService.upsertSubscription(userId, {
 			plan: newPlan,
 			subscription_id: subscription.subscription_id,
-			current_period_start:
-				start != null ? new Date(start * 1000) : undefined,
+			current_period_start: start != null ? new Date(start * 1000) : undefined,
 			current_period_end: end != null ? new Date(end * 1000) : undefined,
 		});
 	}
@@ -231,13 +231,13 @@ export default class PaymentsService {
 		const subscriptionId =
 			typeof subRef === 'string'
 				? subRef
-				: (subRef && typeof subRef === 'object' && 'id' in subRef
-						? subRef.id
-						: null);
+				: subRef && typeof subRef === 'object' && 'id' in subRef
+					? subRef.id
+					: null;
 		const customerId =
 			typeof stripeSession.customer === 'string'
 				? stripeSession.customer
-				: (stripeSession.customer as { id?: string } | undefined)?.id ?? null;
+				: ((stripeSession.customer as { id?: string } | undefined)?.id ?? null);
 
 		if (!ALLOWED_RESOURCE_TYPES.includes(resourceType)) {
 			throw new ValidationError('Unsupported resource type');
@@ -293,7 +293,7 @@ export default class PaymentsService {
 		if (!userId || !planName) {
 			throw new ValidationError('Invalid resource_id');
 		}
-		
+
 		// Build update data, preserving null values (don't convert to undefined)
 		const updateData: {
 			plan: string;
@@ -305,7 +305,7 @@ export default class PaymentsService {
 			plan: planName,
 			subscription_id: subscriptionId,
 		};
-		
+
 		if (extra?.stripeCustomerId !== undefined) {
 			updateData.stripe_customer_id = extra.stripeCustomerId;
 		}
@@ -315,7 +315,7 @@ export default class PaymentsService {
 		if (extra?.currentPeriodEnd !== undefined) {
 			updateData.current_period_end = extra.currentPeriodEnd;
 		}
-		
+
 		await this.userService.upsertSubscription(userId, updateData);
 	}
 
@@ -460,7 +460,10 @@ export default class PaymentsService {
 
 		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
 		if (row) {
-			await this.userService.updateSubscriptionStatus(row.user_id, 'active');
+			await this.userService.updateSubscriptionStatus(
+				(row as { user_id: string }).user_id,
+				'active',
+			);
 		}
 	}
 
@@ -472,7 +475,10 @@ export default class PaymentsService {
 
 		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
 		if (row) {
-			await this.userService.updateSubscriptionStatus(row.user_id, 'past_due');
+			await this.userService.updateSubscriptionStatus(
+				(row as { user_id: string }).user_id,
+				'past_due',
+			);
 		}
 	}
 
@@ -505,18 +511,21 @@ export default class PaymentsService {
 		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
 
 		if (row) {
-			await this.userService.updateSubscriptionFields(row.id, {
-				status,
-				current_period_start:
-					sub.current_period_start != null
-						? new Date(sub.current_period_start * 1000)
-						: undefined,
-				current_period_end:
-					sub.current_period_end != null
-						? new Date(sub.current_period_end * 1000)
-						: undefined,
-				cancel_at_period_end: sub.cancel_at_period_end ?? undefined,
-			});
+			await this.userService.updateSubscriptionFields(
+				(row as { id: number }).id,
+				{
+					status,
+					current_period_start:
+						sub.current_period_start != null
+							? new Date(sub.current_period_start * 1000)
+							: undefined,
+					current_period_end:
+						sub.current_period_end != null
+							? new Date(sub.current_period_end * 1000)
+							: undefined,
+					cancel_at_period_end: sub.cancel_at_period_end ?? undefined,
+				},
+			);
 			return;
 		}
 
@@ -546,7 +555,10 @@ export default class PaymentsService {
 			subscription.id,
 		);
 		if (row) {
-			await this.userService.updateSubscriptionStatus(row.user_id, 'canceled');
+			await this.userService.updateSubscriptionStatus(
+				(row as { user_id: string }).user_id,
+				'canceled',
+			);
 		}
 	}
 

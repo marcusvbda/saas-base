@@ -12,10 +12,16 @@ export default class SettingsService {
 		return this.repository.findSettingsByUserId(userId);
 	}
 
-	async upsertSettings(userId: string, data: SettingsUpdateInput): Promise<void> {
+	async upsertSettings(
+		userId: string,
+		data: SettingsUpdateInput,
+	): Promise<void> {
 		const settings = await this.repository.findSettingsByUserId(userId);
 		if (settings) {
-			await this.repository.updateSettings(settings.id, data);
+			await this.repository.updateSettings(
+				(settings as { id: number }).id,
+				data,
+			);
 			return;
 		}
 		await this.repository.createSettings(userId, data);

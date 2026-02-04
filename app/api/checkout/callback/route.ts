@@ -2,10 +2,7 @@ import PaymentsService from '@/domain/payments/payments.service';
 import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
 
-function redirectToSettings(
-	success: boolean,
-	message?: string,
-): NextResponse {
+function redirectToSettings(success: boolean, message?: string): NextResponse {
 	const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
 	const url = new URL(`${baseUrl}/settings`);
 	url.searchParams.set('section', 'plan');
@@ -74,16 +71,12 @@ export async function GET(request: NextRequest) {
 		await paymentsService.updateCheckoutSessionStatus(sessionId, 'paid');
 		const result = await paymentsService.processResultSessionCheckout(
 			stripeSession,
-			session,
+			session as any,
 		);
-		const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(
-			/\/$/,
-			'',
-		);
+		const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
 		return NextResponse.redirect(`${baseUrl}${result.redirectPath}`);
 	} catch (err) {
-		const msg =
-			err instanceof Error ? err.message : 'Something went wrong';
+		const msg = err instanceof Error ? err.message : 'Something went wrong';
 		return redirectToSettings(false, msg);
 	}
 }

@@ -15,9 +15,20 @@ import Stripe from 'stripe';
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+function getStripe(): Stripe | null {
+	const key = process.env.STRIPE_SECRET_KEY?.trim();
+	if (!key) return null;
+	return new Stripe(key);
+}
 
 export async function POST(req: Request) {
+	const stripe = getStripe();
+	if (!stripe) {
+		return NextResponse.json(
+			{ error: 'Stripe is not configured' },
+			{ status: 503 },
+		);
+	}
 	const { allowed, retryAfter } = checkRateLimit(
 		getClientIdentifier(req),
 		'api:webhooks:stripe',
