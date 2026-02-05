@@ -675,17 +675,13 @@ export default class ReportsService {
 			);
 			if (alreadyRan) continue;
 
-			// Define o range padrão: de ontem até hoje (como no POST /api/reports action=generate)
-			const to = scheduledFor;
-			const toDate = to.toISOString().slice(0, 10);
-			const from = new Date(to);
-			from.setUTCDate(from.getUTCDate() - 1);
-			const fromDate = from.toISOString().slice(0, 10);
+			// Relatório apenas da data da execução (um único dia).
+			const executionDate = scheduledFor.toISOString().slice(0, 10);
 
 			await this.generateReport({
 				userId: schedule.user_id,
-				from_date: fromDate,
-				to_date: toDate,
+				from_date: executionDate,
+				to_date: executionDate,
 				locale: schedule.locale ?? undefined,
 			});
 
