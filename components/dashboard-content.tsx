@@ -93,12 +93,18 @@ function useReportReadySubscription(userId: string | undefined) {
 		const pusher = getPusherClient();
 		if (!pusher) return;
 		const channel = pusher.subscribe(`reports-${userId}`);
-		const handler = () => {
+		const onReportReady = () => {
 			queryClient.invalidateQueries({ queryKey: ['reports'] });
 		};
-		channel.bind('report-ready', handler);
+		// Refetch when channel is ready so we don't miss events sent before subscription completed
+		const onSubscribed = () => {
+			queryClient.invalidateQueries({ queryKey: ['reports'] });
+		};
+		channel.bind('report-ready', onReportReady);
+		channel.bind('pusher:subscription_succeeded', onSubscribed);
 		return () => {
-			channel.unbind('report-ready', handler);
+			channel.unbind('report-ready', onReportReady);
+			channel.unbind('pusher:subscription_succeeded', onSubscribed);
 			pusher.unsubscribe(`reports-${userId}`);
 		};
 	}, [userId, queryClient]);
@@ -117,11 +123,21 @@ export default function DashboardContent() {
 		queryKey: ['integrations', 'repository'],
 		queryFn: () =>
 			fetch('/api/integrations?type=repository').then((r) => r.json()),
+		refetchInterval: (query) => {
+			const list = query.state.data as Integration[] | undefined;
+			const hasPending = list?.some((i: Integration) => i.status === 'pending');
+			return hasPending ? 4000 : false;
+		},
 	});
 
 	const { data: reports = [], isLoading: reportsLoading } = useQuery({
 		queryKey: ['reports'],
 		queryFn: () => fetch('/api/reports').then((r) => r.json()),
+		refetchInterval: (query) => {
+			const data = query.state.data as DailyReport[] | undefined;
+			const hasProcessing = data?.some((r) => r.status === 'processing');
+			return hasProcessing ? 4000 : false;
+		},
 	});
 
 	useReportReadySubscription(userId);

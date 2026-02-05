@@ -69,6 +69,11 @@ export default function RepositoryProvider() {
 		queryKey: ['integrations', 'repository'],
 		queryFn: () =>
 			fetch('/api/integrations?type=repository').then((res) => res.json()),
+		refetchInterval: (query) => {
+			const list = query.state.data as Integration[] | undefined;
+			const hasPending = list?.some((i) => i.status === 'pending');
+			return hasPending ? 4000 : false;
+		},
 	});
 	const queryClient = useQueryClient();
 
@@ -373,6 +378,11 @@ export const IntegrationCard = ({
 						}
 						return item;
 					});
+				});
+			}}
+			onSubscribed={() => {
+				queryClient.invalidateQueries({
+					queryKey: ['integrations', 'repository'],
 				});
 			}}
 			render={(data: any) => {

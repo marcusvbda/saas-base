@@ -9,6 +9,8 @@ interface IProps {
 	render: (data: any) => ReactNode;
 	initialData?: any;
 	onChange?: ((data: any) => void) | null;
+	/** Called when channel subscription is ready (e.g. to refetch and avoid missing events) */
+	onSubscribed?: () => void;
 }
 
 export default function SocketClient({
@@ -17,10 +19,13 @@ export default function SocketClient({
 	render,
 	initialData = null,
 	onChange = null,
+	onSubscribed = null,
 }: IProps) {
 	const [data, setData] = useState<any>(initialData);
 	const onChangeRef = useRef(onChange);
 	onChangeRef.current = onChange;
+	const onSubscribedRef = useRef(onSubscribed);
+	onSubscribedRef.current = onSubscribed;
 
 	useEffect(() => {
 		setData(initialData);
@@ -35,9 +40,14 @@ export default function SocketClient({
 			setData(payload);
 			onChangeRef.current?.(payload);
 		};
+		const onSubSucceeded = () => {
+			onSubscribedRef.current?.();
+		};
 		channel.bind(eventName, handler);
+		channel.bind('pusher:subscription_succeeded', onSubSucceeded);
 		return () => {
 			channel.unbind(eventName, handler);
+			channel.unbind('pusher:subscription_succeeded', onSubSucceeded);
 			pusher.unsubscribe(channelName);
 		};
 	}, [eventName, channelName]);
