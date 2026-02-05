@@ -7,7 +7,10 @@ import ReportSchedulesRepository, {
 	ReportSchedule,
 	ReportScheduleInput,
 } from './report-schedules.repository';
-import { ensureRecurringReportsSchedule } from '@/lib/qstash';
+import {
+	ensureRecurringReportsSchedule,
+	deleteRecurringReportsSchedule,
+} from '@/lib/qstash';
 
 function formatReportDate(date: Date): string {
 	return date.toISOString().slice(0, 10);
@@ -599,17 +602,15 @@ export default class ReportsService {
 				throw new NotFoundError('Schedule not found');
 			}
 			await this.schedulesRepo.update(userId, id, input);
-			// Se o usuário ativou/alterou um schedule, garante que o schedule global exista.
-			if (input.active ?? existing.active) {
-				await ensureRecurringReportsSchedule();
-			}
+			// Após qualquer alteração, sincroniza o schedule global no QStash
+			// com o estado atual (se existe pelo menos um agendamento ativo ou não).
+			await this.syncGlobalRecurringScheduleToggle();
 			return { id };
 		}
 
 		const newId = await this.schedulesRepo.create(userId, input);
-		if (input.active ?? true) {
-			await ensureRecurringReportsSchedule();
-		}
+		// Mesmo para novos schedules (ativos ou não), sincroniza o schedule global.
+		await this.syncGlobalRecurringScheduleToggle();
 		return { id: newId };
 	}
 
@@ -625,6 +626,9 @@ export default class ReportsService {
 			throw new NotFoundError('Schedule not found');
 		}
 		await this.schedulesRepo.delete(payload.userId, payload.scheduleId);
+		// Se o usuário removeu um agendamento, verifica se ainda existem
+		// schedules ativos; se não houver, remove o schedule global do QStash.
+		await this.syncGlobalRecurringScheduleToggle();
 	}
 
 	/**
@@ -696,5 +700,21 @@ export default class ReportsService {
 		pusher.trigger(`reports-${userId}`, 'report-ready', {
 			report_date: reportDate,
 		});
+	}
+
+	/**
+	 * Garante que o schedule global do QStash reflita o estado atual dos
+	 * agendamentos no banco:
+	 *
+	 * - Se existe pelo menos um schedule ativo -> garante que o schedule global exista.
+	 * - Se não existe nenhum schedule ativo -> remove o schedule global, se existir.
+	 */
+	private async syncGlobalRecurringScheduleToggle(): Promise<void> {
+		const active = await this.schedulesRepo.findAllActive();
+		if (active.length > 0) {
+			await ensureRecurringReportsSchedule();
+		} else {
+			await deleteRecurringReportsSchedule();
+		}
 	}
 }

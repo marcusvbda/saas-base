@@ -65,3 +65,41 @@ export const ensureRecurringReportsSchedule = async () => {
 		// Idealmente, adicionar logging/observabilidade aqui.
 	}
 };
+
+/**
+ * Remove o schedule global de relatórios recorrentes no QStash, caso exista.
+ *
+ * Usado quando não há mais nenhum agendamento ativo no banco.
+ */
+export const deleteRecurringReportsSchedule = async () => {
+	if (process.env.QUEUE_DRIVER !== 'qstash') return;
+	if (!process.env.QSTASH_CALLBACK_URL) return;
+
+	const destination = `${process.env.QSTASH_CALLBACK_URL}/api/webhooks/qstash`;
+	const cron = '* * * * *'; // deve bater com o usado em ensureRecurringReportsSchedule
+
+	try {
+		const list: any = (await (qstash as any).schedules?.list?.()) ?? [];
+		const schedules: any[] = Array.isArray(list?.schedules)
+			? list.schedules
+			: Array.isArray(list)
+				? list
+				: [];
+
+		const existing = schedules.find(
+			(s) => s?.destination === destination && s?.cron === cron,
+		);
+		if (!existing) return;
+
+		// O SDK espera um scheduleId (string). Tentamos campos comuns de forma tolerante.
+		const scheduleId: string | undefined =
+			existing.scheduleId ?? existing.id ?? existing.schedule ?? existing.name;
+
+		if (!scheduleId) return;
+
+		await (qstash as any).schedules?.delete?.(scheduleId);
+	} catch {
+		// Falha em remover o schedule global não deve quebrar o fluxo HTTP do usuário.
+		// Idealmente, adicionar logging/observabilidade aqui.
+	}
+};
