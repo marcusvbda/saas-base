@@ -10,7 +10,7 @@ interface IProps {
 	initialData?: any;
 	onChange?: ((data: any) => void) | null;
 	/** Called when channel subscription is ready (e.g. to refetch and avoid missing events) */
-	onSubscribed?: () => void;
+	onSubscribed?: (() => void) | null;
 }
 
 export default function SocketClient({
@@ -19,13 +19,15 @@ export default function SocketClient({
 	render,
 	initialData = null,
 	onChange = null,
-	onSubscribed = null,
+	onSubscribed,
 }: IProps) {
 	const [data, setData] = useState<any>(initialData);
 	const onChangeRef = useRef(onChange);
-	onChangeRef.current = onChange;
 	const onSubscribedRef = useRef(onSubscribed);
-	onSubscribedRef.current = onSubscribed;
+	useEffect(() => {
+		onChangeRef.current = onChange;
+		onSubscribedRef.current = onSubscribed;
+	}, [onChange, onSubscribed]);
 
 	useEffect(() => {
 		setData(initialData);
