@@ -49,6 +49,10 @@ const dashboard = {
 		'Revise o conteúdo melhorado e salve se quiser',
 	'Copied to clipboard': 'Copiado para a área de transferência',
 	'Failed to copy': 'Falha ao copiar',
+	'Repository integration must be connected to generate reports.':
+		'A integração de repositório precisa estar conectada para gerar relatórios.',
+	'Repository integration must be connected to regenerate reports.':
+		'A integração de repositório precisa estar conectada para regenerar relatórios.',
 };
 
 export default dashboard;

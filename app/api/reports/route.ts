@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireServerAuth } from '@/lib/better-auth/server';
 import ReportsService from '@/domain/reports/reports.service';
+import IntegrationsRepository from '@/domain/integrations/integrations.repository';
 import { domainErrorToNextResponse } from '@/lib/domain-error-to-http';
 import { publishJson } from '@/lib/qstash';
 import { z } from 'zod';
+
+async function hasConnectedRepositoryIntegration(
+	userId: string,
+): Promise<boolean> {
+	const repo = new IntegrationsRepository();
+	const list = await repo.findAllByUserIdAndType(userId, 'repository');
+	return list.some((i) => i.status === 'connected');
+}
 
 function formatReportDate(date: Date): string {
 	return date.toISOString().slice(0, 10);
@@ -81,6 +90,20 @@ export async function POST(request: NextRequest) {
 			const json = await request.json().catch(() => ({}));
 			const action = (json.action as string) || 'generate';
 			if (action === 'generate') {
+				const connected = await hasConnectedRepositoryIntegration(
+					session.user.id,
+				);
+				if (!connected) {
+					return NextResponse.json(
+						{
+							error: {
+								message:
+									'Repository integration must be connected to generate reports.',
+							},
+						},
+						{ status: 403 },
+					);
+				}
 				const today = formatReportDate(new Date());
 				const yesterday = (() => {
 					const d = new Date();
@@ -123,6 +146,20 @@ export async function POST(request: NextRequest) {
 					return NextResponse.json(
 						{ error: { message: 'Invalid report_id' } },
 						{ status: 400 },
+					);
+				}
+				const connected = await hasConnectedRepositoryIntegration(
+					session.user.id,
+				);
+				if (!connected) {
+					return NextResponse.json(
+						{
+							error: {
+								message:
+									'Repository integration must be connected to regenerate reports.',
+							},
+						},
+						{ status: 403 },
 					);
 				}
 				const locale =

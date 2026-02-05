@@ -251,6 +251,9 @@ export default function DashboardContent() {
 	});
 
 	const hasRepositoryIntegration = integrations.length > 0;
+	const isIntegrationConnected = integrations.some(
+		(i: Integration) => i.status === 'connected',
+	);
 	const today = todayISO();
 	const todayReport = useMemo(
 		() =>
@@ -436,7 +439,9 @@ export default function DashboardContent() {
 									</div>
 									<Button
 										onClick={() => generateMutation.mutate()}
-										disabled={generateMutation.isPending}
+										disabled={
+											generateMutation.isPending || !isIntegrationConnected
+										}
 									>
 										{generateMutation.isPending ? (
 											<>
@@ -497,6 +502,7 @@ export default function DashboardContent() {
 							updatePending={updateContentMutation.isPending}
 							regeneratePending={regenerateMutation.isPending}
 							deletePending={deleteMutation.isPending}
+							canRegenerate={isIntegrationConnected}
 							t={t}
 						/>
 					)}
@@ -524,6 +530,7 @@ export default function DashboardContent() {
 										updatePending={updateContentMutation.isPending}
 										regeneratePending={regenerateMutation.isPending}
 										deletePending={deleteMutation.isPending}
+										canRegenerate={isIntegrationConnected}
 										t={t}
 									/>
 								))}
@@ -551,6 +558,7 @@ function ReportCard({
 	updatePending,
 	regeneratePending,
 	deletePending,
+	canRegenerate = true,
 	t,
 }: {
 	report: DailyReport;
@@ -567,6 +575,7 @@ function ReportCard({
 	updatePending: boolean;
 	regeneratePending: boolean;
 	deletePending: boolean;
+	canRegenerate?: boolean;
 	t: (key: string, params?: Record<string, string>) => string;
 }) {
 	const isEditing = editingId === report.id;
@@ -651,7 +660,7 @@ function ReportCard({
 						variant="outline"
 						size="sm"
 						onClick={() => onRegenerate(report.id)}
-						disabled={regeneratePending || isProcessing}
+						disabled={regeneratePending || isProcessing || !canRegenerate}
 					>
 						{regeneratePending ? (
 							<Loader2 className="h-4 w-4 animate-spin" />
