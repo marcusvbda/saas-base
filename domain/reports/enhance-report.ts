@@ -43,7 +43,7 @@ export async function enhanceReportContent(
 	content: string,
 	aiConfig?: EnhanceReportAIConfig,
 	locale?: string,
-	mode: EnhanceMode = 'light',
+	mode: EnhanceMode = 'full',
 ): Promise<string> {
 	if (!content?.trim()) return content;
 	if (isTrivialContent(content)) return content;
