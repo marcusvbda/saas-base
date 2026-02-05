@@ -1,19 +1,37 @@
 import { createChatCompletion, type AIConfig } from '@/lib/open-ai';
 
 const DEFAULT_MODEL = 'gpt-4o-mini';
+const MIN_CONTENT_LENGTH = 80;
 
-const SYSTEM_PROMPT = `You are improving a daily work report written in Markdown. The report has sections by date (## date), then project names in bold, then branch names in bold, then bullet lists of commit titles.
+const PLACEHOLDER_PHRASES = [
+	'no activity',
+	'no repository integration',
+	'nenhuma atividade',
+	'nenhuma integração',
+	'add your repository',
+	'adicione uma integração',
+];
 
-Your task:
-1. Improve organization and formatting if needed (keep the same structure: ## date, **project**, **branch**, - commits).
-2. Fix grammar and typos in commit titles and any other text.
-3. You may elaborate slightly on what was done in each commit ONLY using the real information from the commit title and branch name. Do NOT invent or add information that is not implied by the commit message or branch name. If there is not enough information to elaborate without inventing, only fix grammar.
-4. Keep the same Markdown style: ## for dates, **bold** for project and branch names, - for list items. No emojis.
-5. Output only the improved Markdown, no preamble or explanation.
-6. If the text is not in English, translate it to English first.
-7. You dont need to translate regular coding exprensions like "fix bug", "add feature", "refactor", "merge", "branch", "bug" and others  etc.
-8. First letter must be capitalized.
-`;
+function isTrivialContent(content: string): boolean {
+	const trimmed = content.trim();
+	if (trimmed.length < MIN_CONTENT_LENGTH) return true;
+	const lower = trimmed.toLowerCase();
+	return PLACEHOLDER_PHRASES.some((p) => lower.includes(p));
+}
+
+export type EnhanceMode = 'light' | 'full';
+
+function buildSystemPrompt(locale: string, mode: EnhanceMode): string {
+	const langHint =
+		locale && locale !== 'en'
+			? ` Translate to ${locale} if text is in another language.`
+			: '';
+
+	if (mode === 'light') {
+		return `Improve this daily work report (Markdown). Fix grammar and typos only. Keep structure (## date, **project**, **branch**, - items) and length. No emojis. Output only the markdown.${langHint}`;
+	}
+	return `Improve this daily work report (Markdown). Fix grammar/typos. Keep structure (## date, **project**, **branch**, - items). Elaborate briefly on commits only when implied by the message—do not invent. No emojis. Output only the markdown.${langHint}`;
+}
 
 export type EnhanceReportAIConfig = {
 	baseURL: string;
@@ -25,7 +43,11 @@ export async function enhanceReportContent(
 	content: string,
 	aiConfig?: EnhanceReportAIConfig,
 	locale?: string,
+	mode: EnhanceMode = 'light',
 ): Promise<string> {
+	if (!content?.trim()) return content;
+	if (isTrivialContent(content)) return content;
+
 	const config: AIConfig | undefined = aiConfig
 		? {
 				apiKey: aiConfig.token,
@@ -37,11 +59,8 @@ export async function enhanceReportContent(
 			}
 		: undefined;
 
-	const systemPrompt = `
-	    TRANSLATE THE FOLLOWING TEXT TO ${locale}:
-	    ${SYSTEM_PROMPT}
-	    OUTPUT ONLY THE TRANSLATED TEXT, NO PREAMBLE OR EXPLANATION.
-	`;
+	const systemPrompt = buildSystemPrompt(locale ?? 'en', mode);
+
 	return createChatCompletion(
 		[
 			{ role: 'system', content: systemPrompt },

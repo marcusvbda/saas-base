@@ -213,6 +213,8 @@ function isBranchIgnoredForProject(
 	return !!branches?.includes(branchName);
 }
 
+const MAX_REFS_PER_PROJECT = 50;
+
 async function fetchGitLabReportContent(
 	baseUrl: string,
 	token: string,
@@ -229,18 +231,18 @@ async function fetchGitLabReportContent(
 	const since = fromDate.slice(0, 10) + 'T00:00:00.000Z';
 	const until = toDate.slice(0, 10) + 'T23:59:59.999Z';
 
+	const emptyResult = () =>
+		buildReportByDayProjectBranch(labels, grouped, fromDate, toDate, locale);
+
 	try {
-		// Author from token: /user gives username/email used for GitLab "author" filter
-		const userRes = await fetch(`${baseUrl}/api/v4/user`, { headers });
-		if (!userRes.ok) {
-			return buildReportByDayProjectBranch(
-				labels,
-				grouped,
-				fromDate,
-				toDate,
-				locale,
-			);
-		}
+		const [userRes, projectsRes] = await Promise.all([
+			fetch(`${baseUrl}/api/v4/user`, { headers }),
+			fetch(`${baseUrl}/api/v4/projects?membership=true&per_page=100`, {
+				headers,
+			}),
+		]);
+
+		if (!userRes.ok) return emptyResult();
 		const user = (await userRes.json()) as {
 			name: string;
 			username?: string;
@@ -248,75 +250,80 @@ async function fetchGitLabReportContent(
 		};
 		const authorParam = user.username ?? user.email ?? user.name;
 
-		// Resolve project IDs to query
-		let ids = projectIds ?? [];
-		if (ids.length === 0) {
-			const projectsRes = await fetch(
-				`${baseUrl}/api/v4/projects?membership=true&per_page=100`,
-				{ headers },
-			);
-			if (!projectsRes.ok) {
-				return buildReportByDayProjectBranch(
-					labels,
-					grouped,
-					fromDate,
-					toDate,
-					locale,
-				);
-			}
-			const projects = (await projectsRes.json()) as Array<{ id: number }>;
-			ids = projects.map((p) => p.id);
-		}
+		if (!projectsRes.ok) return emptyResult();
+		const allProjects = (await projectsRes.json()) as Array<{
+			id: number;
+			name: string;
+		}>;
 
-		for (const projectId of ids) {
-			const projectRes = await fetch(
-				`${baseUrl}/api/v4/projects/${encodeURIComponent(projectId)}`,
-				{ headers },
-			);
-			if (!projectRes.ok) continue;
-			const project = (await projectRes.json()) as { name: string };
-			const projectName = project.name;
+		const projects =
+			projectIds != null && projectIds.length > 0
+				? allProjects.filter((p) => projectIds.includes(p.id))
+				: allProjects;
 
-			// All commits by this author in the date range (all branches in one call)
-			const commitsRes = await fetch(
-				`${baseUrl}/api/v4/projects/${encodeURIComponent(projectId)}/repository/commits?all=true&author=${encodeURIComponent(authorParam)}&since=${encodeURIComponent(since)}&until=${encodeURIComponent(until)}&per_page=100`,
-				{ headers },
-			);
-			if (!commitsRes.ok) continue;
-			const commits = (await commitsRes.json()) as Array<{
-				id: string;
-				title: string;
-				committed_date: string;
-			}>;
-
-			const maxRefsPerProject = 50;
-			for (let i = 0; i < Math.min(commits.length, maxRefsPerProject); i++) {
-				const c = commits[i];
-				const day = c.committed_date.slice(0, 10);
-				const refsRes = await fetch(
-					`${baseUrl}/api/v4/projects/${encodeURIComponent(projectId)}/repository/commits/${encodeURIComponent(c.id)}/refs?type=branch`,
+		const projectResults = await Promise.all(
+			projects.map(async (project) => {
+				const commitsRes = await fetch(
+					`${baseUrl}/api/v4/projects/${encodeURIComponent(project.id)}/repository/commits?all=true&author=${encodeURIComponent(authorParam)}&since=${encodeURIComponent(since)}&until=${encodeURIComponent(until)}&per_page=100`,
 					{ headers },
 				);
-				if (!refsRes.ok) continue;
-				const refs = (await refsRes.json()) as Array<{
-					type: string;
-					name: string;
+				if (!commitsRes.ok)
+					return {
+						project,
+						commits: [] as Array<{
+							id: string;
+							title: string;
+							committed_date: string;
+						}>,
+					};
+				const commits = (await commitsRes.json()) as Array<{
+					id: string;
+					title: string;
+					committed_date: string;
 				}>;
-				const branchNames = refs
-					.filter((r) => r.type === 'branch')
-					.map((r) => r.name)
-					.filter(
-						(branchName) =>
-							!isBranchIgnoredForProject(
-								ignoredBranchesByProject,
-								projectId,
-								branchName,
-							),
-					);
-				if (branchNames.length === 0) continue;
-				addToGrouped(grouped, day, projectName, branchNames[0], c.title);
-			}
-		}
+				return { project, commits };
+			}),
+		);
+
+		await Promise.all(
+			projectResults.map(async ({ project, commits }) => {
+				const toProcess = commits.slice(0, MAX_REFS_PER_PROJECT);
+				const refsResults = await Promise.all(
+					toProcess.map(async (c) => {
+						const refsRes = await fetch(
+							`${baseUrl}/api/v4/projects/${encodeURIComponent(project.id)}/repository/commits/${encodeURIComponent(c.id)}/refs?type=branch`,
+							{ headers },
+						);
+						if (!refsRes.ok) return null;
+						const refs = (await refsRes.json()) as Array<{
+							type: string;
+							name: string;
+						}>;
+						const branchNames = refs
+							.filter((r) => r.type === 'branch')
+							.map((r) => r.name)
+							.filter(
+								(branchName) =>
+									!isBranchIgnoredForProject(
+										ignoredBranchesByProject,
+										project.id,
+										branchName,
+									),
+							);
+						return branchNames.length > 0
+							? {
+									day: c.committed_date.slice(0, 10),
+									branch: branchNames[0],
+									title: c.title,
+								}
+							: null;
+					}),
+				);
+				for (const r of refsResults) {
+					if (r) addToGrouped(grouped, r.day, project.name, r.branch, r.title);
+				}
+			}),
+		);
 
 		return buildReportByDayProjectBranch(
 			labels,
@@ -326,13 +333,7 @@ async function fetchGitLabReportContent(
 			locale,
 		);
 	} catch {
-		return buildReportByDayProjectBranch(
-			labels,
-			grouped,
-			fromDate,
-			toDate,
-			locale,
-		);
+		return emptyResult();
 	}
 }
 
