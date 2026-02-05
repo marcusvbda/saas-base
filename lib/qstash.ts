@@ -43,9 +43,7 @@ export const ensureRecurringReportsSchedule = async () => {
 
 	try {
 		// Tolerante a mudanças na forma como o SDK retorna a lista
-		const list: any =
-			// @ts-expect-error: schedules.list pode não estar tipado no SDK
-			(await (qstash as any).schedules?.list?.()) ?? [];
+		const list: any = (await (qstash as any).schedules?.list?.()) ?? [];
 		const schedules: any[] = Array.isArray(list?.schedules)
 			? list.schedules
 			: Array.isArray(list)
@@ -57,7 +55,6 @@ export const ensureRecurringReportsSchedule = async () => {
 		);
 		if (existing) return;
 
-		// @ts-expect-error: schedules.create pode não estar tipado no SDK local
 		await (qstash as any).schedules?.create?.({
 			destination,
 			cron,
