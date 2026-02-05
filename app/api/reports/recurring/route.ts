@@ -7,7 +7,10 @@ import { z } from 'zod';
 const scheduleBodySchema = z.object({
 	id: z.number().int().positive().optional(),
 	days_of_week: z.array(z.number().int().min(0).max(6)).nonempty(),
-	times_utc: z.array(z.string().regex(/^[0-2][0-9]:[0-5][0-9]$/)).nonempty(),
+	// Horários sempre em UTC no formato HH:MM, 00–23
+	times_utc: z
+		.array(z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/))
+		.nonempty(),
 	locale: z.string().min(2).max(10).optional(),
 	active: z.boolean().optional(),
 });

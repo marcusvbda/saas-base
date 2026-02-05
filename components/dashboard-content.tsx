@@ -28,6 +28,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import Loading from '@/components/loading';
@@ -461,205 +462,230 @@ export default function DashboardContent() {
 					</div>
 				</section>
 
-				{/* Generate report (date range), recurring schedule & Reports list */}
+				{/* Generate report & recurring schedule, split into tabs */}
 				<section className="space-y-4">
-					<h2 className="text-lg font-semibold">{t("Today's Draft")}</h2>
+					<Tabs defaultValue="recurring">
+						<div className="flex items-center justify-between gap-4">
+							<h2 className="text-lg font-semibold">{t("Today's Draft")}</h2>
+							<TabsList>
+								<TabsTrigger value="recurring">
+									{t('Recurring reports')}
+								</TabsTrigger>
+								<TabsTrigger value="one-off">{t('One-off report')}</TabsTrigger>
+							</TabsList>
+						</div>
 
-					{!todayReport && (
-						<Card>
-							<CardContent>
-								<p className="text-muted-foreground text-sm mb-4">
-									{t(
-										'Generate a report for a period. Choose the start date (From) and end date (To).',
-									)}
-								</p>
-								<div className="flex flex-wrap items-end gap-4">
-									<div className="flex flex-col gap-1.5">
-										<label
-											htmlFor="report-from-date"
-											className="text-sm font-medium"
-										>
-											{t('From')}
-										</label>
-										<input
-											id="report-from-date"
-											type="date"
-											value={fromDate}
-											onChange={(e) => setFromDate(e.target.value.slice(0, 10))}
-											className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-										/>
-									</div>
-									<div className="flex flex-col gap-1.5">
-										<label
-											htmlFor="report-to-date"
-											className="text-sm font-medium"
-										>
-											{t('To')}
-										</label>
-										<input
-											id="report-to-date"
-											type="date"
-											value={toDate}
-											onChange={(e) => setToDate(e.target.value.slice(0, 10))}
-											className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-										/>
-									</div>
-									<Button
-										onClick={() => generateMutation.mutate()}
-										disabled={
-											generateMutation.isPending || !isIntegrationConnected
-										}
-									>
-										{generateMutation.isPending ? (
-											<>
-												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-												{t('Generating…')}
-											</>
-										) : (
-											<>
-												<FileText className="mr-2 h-4 w-4" />
-												{t('Generate report')}
-											</>
+						<TabsContent value="recurring" className="mt-2">
+							<Card>
+								<CardHeader>
+									<CardTitle className="text-base flex items-center gap-2">
+										{t('Recurring reports')}
+									</CardTitle>
+								</CardHeader>
+								<CardContent className="space-y-4">
+									<p className="text-muted-foreground text-sm">
+										{t(
+											'Configure automatic report generation on selected days of the week and times (UTC). You do not need to open the app; reports will be generated automatically.',
 										)}
-									</Button>
-								</div>
-							</CardContent>
-						</Card>
-					)}
-
-					<Card>
-						<CardHeader>
-							<CardTitle className="text-base flex items-center gap-2">
-								{t('Recurring reports')}
-							</CardTitle>
-						</CardHeader>
-						<CardContent className="space-y-4">
-							<p className="text-muted-foreground text-sm">
-								{t(
-									'Configure automatic report generation on selected days of the week and times (UTC). You do not need to open the app; reports will be generated automatically.',
-								)}
-							</p>
-							<div className="flex items-center gap-2">
-								<label className="flex items-center gap-2 text-sm font-medium">
-									<input
-										type="checkbox"
-										className="h-4 w-4"
-										checked={recurringEnabled}
-										onChange={(e) => setRecurringEnabled(e.target.checked)}
-									/>
-									{t('Enable recurring reports')}
-								</label>
-								{schedulesLoading && (
-									<span className="text-xs text-muted-foreground flex items-center gap-1">
-										<Loader2 className="h-3 w-3 animate-spin" />
-										{t('Loading schedule…')}
-									</span>
-								)}
-							</div>
-
-							<div className="space-y-2">
-								<div className="text-sm font-medium">{t('Days of week')}</div>
-								<div className="flex flex-wrap gap-2">
-									{[
-										{ label: t('Sun'), value: 0 },
-										{ label: t('Mon'), value: 1 },
-										{ label: t('Tue'), value: 2 },
-										{ label: t('Wed'), value: 3 },
-										{ label: t('Thu'), value: 4 },
-										{ label: t('Fri'), value: 5 },
-										{ label: t('Sat'), value: 6 },
-									].map((d) => {
-										const active = selectedDays.includes(d.value);
-										return (
-											<button
-												key={d.value}
-												type="button"
-												onClick={() =>
-													setSelectedDays((prev) =>
-														prev.includes(d.value)
-															? prev.filter((v) => v !== d.value)
-															: [...prev, d.value].sort(),
-													)
-												}
-												className={`px-3 py-1 rounded-full text-xs border transition ${
-													active
-														? 'bg-primary text-primary-foreground border-primary'
-														: 'bg-background text-muted-foreground border-border'
-												}`}
-											>
-												{d.label}
-											</button>
-										);
-									})}
-								</div>
-							</div>
-
-							<div className="space-y-2">
-								<div className="text-sm font-medium">
-									{t('Times (UTC, multiple per day allowed)')}
-								</div>
-								<div className="flex flex-col gap-2">
-									{timeSlots.map((time, index) => (
-										<div key={index} className="flex items-center gap-2">
+									</p>
+									<div className="flex items-center gap-2">
+										<label className="flex items-center gap-2 text-sm font-medium">
 											<input
-												type="time"
-												value={time}
-												onChange={(e) => {
-													const value = e.target.value.slice(0, 5);
-													setTimeSlots((prev) => {
-														const next = [...prev];
-														next[index] = value;
-														return next;
-													});
-												}}
-												className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+												type="checkbox"
+												className="h-4 w-4"
+												checked={recurringEnabled}
+												onChange={(e) => setRecurringEnabled(e.target.checked)}
 											/>
-											<Button
-												type="button"
-												variant="ghost"
-												size="icon"
-												onClick={() =>
-													setTimeSlots((prev) =>
-														prev.filter((_, i) => i !== index),
-													)
-												}
-												disabled={timeSlots.length <= 1}
-											>
-												<Trash2 className="h-4 w-4" />
-											</Button>
+											{t('Enable recurring reports')}
+										</label>
+										{schedulesLoading && (
+											<span className="text-xs text-muted-foreground flex items-center gap-1">
+												<Loader2 className="h-3 w-3 animate-spin" />
+												{t('Loading schedule…')}
+											</span>
+										)}
+									</div>
+
+									<div className="space-y-2">
+										<div className="text-sm font-medium">
+											{t('Days of week')}
 										</div>
-									))}
+										<div className="flex flex-wrap gap-2">
+											{[
+												{ label: t('Sun'), value: 0 },
+												{ label: t('Mon'), value: 1 },
+												{ label: t('Tue'), value: 2 },
+												{ label: t('Wed'), value: 3 },
+												{ label: t('Thu'), value: 4 },
+												{ label: t('Fri'), value: 5 },
+												{ label: t('Sat'), value: 6 },
+											].map((d) => {
+												const active = selectedDays.includes(d.value);
+												return (
+													<button
+														key={d.value}
+														type="button"
+														onClick={() =>
+															setSelectedDays((prev) =>
+																prev.includes(d.value)
+																	? prev.filter((v) => v !== d.value)
+																	: [...prev, d.value].sort(),
+															)
+														}
+														className={`px-3 py-1 rounded-full text-xs border transition ${
+															active
+																? 'bg-primary text-primary-foreground border-primary'
+																: 'bg-background text-muted-foreground border-border'
+														}`}
+													>
+														{d.label}
+													</button>
+												);
+											})}
+										</div>
+									</div>
+
+									<div className="space-y-2">
+										<div className="text-sm font-medium">
+											{t('Times (UTC, multiple per day allowed)')}
+										</div>
+										<div className="flex flex-col gap-2 max-w-xs">
+											{timeSlots.map((time, index) => (
+												<div key={index} className="flex items-center gap-2">
+													<input
+														type="time"
+														value={time}
+														onChange={(e) => {
+															const value = e.target.value.slice(0, 5);
+															setTimeSlots((prev) => {
+																const next = [...prev];
+																next[index] = value;
+																return next;
+															});
+														}}
+														className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+													/>
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon"
+														onClick={() =>
+															setTimeSlots((prev) =>
+																prev.filter((_, i) => i !== index),
+															)
+														}
+														disabled={timeSlots.length <= 1}
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</div>
+											))}
+											<div className="flex">
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													className="w-auto"
+													onClick={() =>
+														setTimeSlots((prev) => [...prev, '09:00'])
+													}
+												>
+													{t('Add time')}
+												</Button>
+											</div>
+										</div>
+									</div>
+
 									<Button
 										type="button"
-										variant="outline"
-										size="sm"
-										onClick={() => setTimeSlots((prev) => [...prev, '09:00'])}
+										onClick={() => saveScheduleMutation.mutate()}
+										disabled={
+											saveScheduleMutation.isPending ||
+											selectedDays.length === 0 ||
+											timeSlots.length === 0
+										}
 									>
-										{t('Add time')}
+										{saveScheduleMutation.isPending ? (
+											<>
+												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+												{t('Saving…')}
+											</>
+										) : (
+											<>{t('Save recurring schedule')}</>
+										)}
 									</Button>
-								</div>
-							</div>
+								</CardContent>
+							</Card>
+						</TabsContent>
 
-							<Button
-								type="button"
-								onClick={() => saveScheduleMutation.mutate()}
-								disabled={
-									saveScheduleMutation.isPending ||
-									selectedDays.length === 0 ||
-									timeSlots.length === 0
-								}
-							>
-								{saveScheduleMutation.isPending ? (
-									<>
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										{t('Saving…')}
-									</>
-								) : (
-									<>{t('Save recurring schedule')}</>
-								)}
-							</Button>
-						</CardContent>
-					</Card>
+						<TabsContent value="one-off" className="mt-2">
+							{!todayReport && (
+								<Card>
+									<CardContent>
+										<p className="text-muted-foreground text-sm mb-4">
+											{t(
+												'Generate a report for a period. Choose the start date (From) and end date (To).',
+											)}
+										</p>
+										<div className="flex flex-wrap items-end gap-4">
+											<div className="flex flex-col gap-1.5">
+												<label
+													htmlFor="report-from-date"
+													className="text-sm font-medium"
+												>
+													{t('From')}
+												</label>
+												<input
+													id="report-from-date"
+													type="date"
+													value={fromDate}
+													onChange={(e) =>
+														setFromDate(e.target.value.slice(0, 10))
+													}
+													className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+												/>
+											</div>
+											<div className="flex flex-col gap-1.5">
+												<label
+													htmlFor="report-to-date"
+													className="text-sm font-medium"
+												>
+													{t('To')}
+												</label>
+												<input
+													id="report-to-date"
+													type="date"
+													value={toDate}
+													onChange={(e) =>
+														setToDate(e.target.value.slice(0, 10))
+													}
+													className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+												/>
+											</div>
+											<Button
+												onClick={() => generateMutation.mutate()}
+												disabled={
+													generateMutation.isPending || !isIntegrationConnected
+												}
+											>
+												{generateMutation.isPending ? (
+													<>
+														<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+														{t('Generating…')}
+													</>
+												) : (
+													<>
+														<FileText className="mr-2 h-4 w-4" />
+														{t('Generate report')}
+													</>
+												)}
+											</Button>
+										</div>
+									</CardContent>
+								</Card>
+							)}
+						</TabsContent>
+					</Tabs>
 
 					{todayReport && (
 						<Card className="bg-muted/50">

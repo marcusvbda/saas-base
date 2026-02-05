@@ -53,6 +53,7 @@ const dashboard = {
 		'A integração de repositório precisa estar conectada para gerar relatórios.',
 	'Repository integration must be connected to regenerate reports.':
 		'A integração de repositório precisa estar conectada para regenerar relatórios.',
+	'One-off report': 'Relatório avulso',
 	// Recurring reports
 	'Recurring reports': 'Relatórios recorrentes',
 	'Configure automatic report generation on selected days of the week and times (UTC). You do not need to open the app; reports will be generated automatically.':

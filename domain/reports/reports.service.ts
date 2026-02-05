@@ -7,6 +7,7 @@ import ReportSchedulesRepository, {
 	ReportSchedule,
 	ReportScheduleInput,
 } from './report-schedules.repository';
+import { ensureRecurringReportsSchedule } from '@/lib/qstash';
 
 function formatReportDate(date: Date): string {
 	return date.toISOString().slice(0, 10);
@@ -571,7 +572,8 @@ export default class ReportsService {
 			),
 		).sort();
 
-		const timeRegex = /^[0-2][0-9]:[0-5][0-9]$/;
+		// Horários sempre em UTC no formato HH:MM, 00–23
+		const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
 		const normalizedTimes = Array.from(
 			new Set(
 				times_utc.map((t) => {
@@ -597,10 +599,17 @@ export default class ReportsService {
 				throw new NotFoundError('Schedule not found');
 			}
 			await this.schedulesRepo.update(userId, id, input);
+			// Se o usuário ativou/alterou um schedule, garante que o schedule global exista.
+			if (input.active ?? existing.active) {
+				await ensureRecurringReportsSchedule();
+			}
 			return { id };
 		}
 
 		const newId = await this.schedulesRepo.create(userId, input);
+		if (input.active ?? true) {
+			await ensureRecurringReportsSchedule();
+		}
 		return { id: newId };
 	}
 
