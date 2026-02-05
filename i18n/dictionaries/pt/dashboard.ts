@@ -53,6 +53,26 @@ const dashboard = {
 		'A integração de repositório precisa estar conectada para gerar relatórios.',
 	'Repository integration must be connected to regenerate reports.':
 		'A integração de repositório precisa estar conectada para regenerar relatórios.',
+	// Recurring reports
+	'Recurring reports': 'Relatórios recorrentes',
+	'Configure automatic report generation on selected days of the week and times (UTC). You do not need to open the app; reports will be generated automatically.':
+		'Configure a geração automática de relatórios em dias da semana e horários (UTC) selecionados. Você não precisa abrir o aplicativo; os relatórios serão gerados automaticamente.',
+	'Enable recurring reports': 'Ativar relatórios recorrentes',
+	'Loading schedule…': 'Carregando agendamento…',
+	'Days of week': 'Dias da semana',
+	Sun: 'Dom',
+	Mon: 'Seg',
+	Tue: 'Ter',
+	Wed: 'Qua',
+	Thu: 'Qui',
+	Fri: 'Sex',
+	Sat: 'Sáb',
+	'Times (UTC, multiple per day allowed)':
+		'Horários (UTC, permitido vários por dia)',
+	'Add time': 'Adicionar horário',
+	'Save recurring schedule': 'Salvar agendamento recorrente',
+	'Recurring report schedule saved':
+		'Agendamento recorrente de relatórios salvo',
 };
 
 export default dashboard;

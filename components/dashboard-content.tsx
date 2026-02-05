@@ -55,6 +55,17 @@ type DailyReport = {
 	updated_at: string;
 };
 
+type ReportSchedule = {
+	id: number;
+	user_id: string;
+	days_of_week: number[];
+	times_utc: string[];
+	locale?: string | null;
+	active: boolean;
+	created_at: string;
+	updated_at: string;
+};
+
 /** Normalize report_date from API (ISO or YYYY-MM-DD) to YYYY-MM-DD for comparison */
 function reportDateOnly(reportDate: string | undefined): string {
 	if (!reportDate) return '';
@@ -118,6 +129,9 @@ export default function DashboardContent() {
 
 	const [fromDate, setFromDate] = useState(todayISO);
 	const [toDate, setToDate] = useState(todayISO);
+	const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);
+	const [timeSlots, setTimeSlots] = useState<string[]>(['09:00']);
+	const [recurringEnabled, setRecurringEnabled] = useState<boolean>(false);
 
 	const { data: integrations = [], isLoading: integrationsLoading } = useQuery({
 		queryKey: ['integrations', 'repository'],
@@ -138,6 +152,11 @@ export default function DashboardContent() {
 			const hasProcessing = data?.some((r) => r.status === 'processing');
 			return hasProcessing ? 4000 : false;
 		},
+	});
+
+	const { data: schedules = [], isLoading: schedulesLoading } = useQuery({
+		queryKey: ['report-schedules'],
+		queryFn: () => fetch('/api/reports/recurring').then((r) => r.json()),
 	});
 
 	useReportReadySubscription(userId);
@@ -250,6 +269,46 @@ export default function DashboardContent() {
 		},
 	});
 
+	const saveScheduleMutation = useMutation({
+		mutationFn: async () => {
+			const body: {
+				id?: number;
+				days_of_week: number[];
+				times_utc: string[];
+				locale?: string;
+				active?: boolean;
+			} = {
+				days_of_week: selectedDays,
+				times_utc: timeSlots,
+				locale,
+				active: recurringEnabled,
+			};
+
+			const existing = (schedules as ReportSchedule[] | undefined)?.[0];
+			if (existing) {
+				body.id = existing.id;
+			}
+
+			const res = await fetch('/api/reports/recurring', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body),
+			});
+			const json = await res.json();
+			if (!res.ok || json.error) {
+				throw new Error(json?.error?.message ?? 'Failed to save schedule');
+			}
+			return json;
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['report-schedules'] });
+			toast.success(t('Recurring report schedule saved'));
+		},
+		onError: (err: Error) => {
+			toast.error(err.message ? t(err.message) : t('Something went wrong'));
+		},
+	});
+
 	const hasRepositoryIntegration = integrations.length > 0;
 	const isIntegrationConnected = integrations.some(
 		(i: Integration) => i.status === 'connected',
@@ -267,6 +326,14 @@ export default function DashboardContent() {
 			),
 		[reports, today],
 	);
+
+	useEffect(() => {
+		const existing = (schedules as ReportSchedule[] | undefined)?.[0];
+		if (!existing) return;
+		setSelectedDays(existing.days_of_week ?? []);
+		setTimeSlots(existing.times_utc ?? []);
+		setRecurringEnabled(existing.active);
+	}, [schedules]);
 
 	const startEdit = useCallback((report: DailyReport) => {
 		setEditingId(report.id);
@@ -394,7 +461,7 @@ export default function DashboardContent() {
 					</div>
 				</section>
 
-				{/* Generate report (date range) & Reports list */}
+				{/* Generate report (date range), recurring schedule & Reports list */}
 				<section className="space-y-4">
 					<h2 className="text-lg font-semibold">{t("Today's Draft")}</h2>
 
@@ -459,6 +526,140 @@ export default function DashboardContent() {
 							</CardContent>
 						</Card>
 					)}
+
+					<Card>
+						<CardHeader>
+							<CardTitle className="text-base flex items-center gap-2">
+								{t('Recurring reports')}
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<p className="text-muted-foreground text-sm">
+								{t(
+									'Configure automatic report generation on selected days of the week and times (UTC). You do not need to open the app; reports will be generated automatically.',
+								)}
+							</p>
+							<div className="flex items-center gap-2">
+								<label className="flex items-center gap-2 text-sm font-medium">
+									<input
+										type="checkbox"
+										className="h-4 w-4"
+										checked={recurringEnabled}
+										onChange={(e) => setRecurringEnabled(e.target.checked)}
+									/>
+									{t('Enable recurring reports')}
+								</label>
+								{schedulesLoading && (
+									<span className="text-xs text-muted-foreground flex items-center gap-1">
+										<Loader2 className="h-3 w-3 animate-spin" />
+										{t('Loading schedule…')}
+									</span>
+								)}
+							</div>
+
+							<div className="space-y-2">
+								<div className="text-sm font-medium">{t('Days of week')}</div>
+								<div className="flex flex-wrap gap-2">
+									{[
+										{ label: t('Sun'), value: 0 },
+										{ label: t('Mon'), value: 1 },
+										{ label: t('Tue'), value: 2 },
+										{ label: t('Wed'), value: 3 },
+										{ label: t('Thu'), value: 4 },
+										{ label: t('Fri'), value: 5 },
+										{ label: t('Sat'), value: 6 },
+									].map((d) => {
+										const active = selectedDays.includes(d.value);
+										return (
+											<button
+												key={d.value}
+												type="button"
+												onClick={() =>
+													setSelectedDays((prev) =>
+														prev.includes(d.value)
+															? prev.filter((v) => v !== d.value)
+															: [...prev, d.value].sort(),
+													)
+												}
+												className={`px-3 py-1 rounded-full text-xs border transition ${
+													active
+														? 'bg-primary text-primary-foreground border-primary'
+														: 'bg-background text-muted-foreground border-border'
+												}`}
+											>
+												{d.label}
+											</button>
+										);
+									})}
+								</div>
+							</div>
+
+							<div className="space-y-2">
+								<div className="text-sm font-medium">
+									{t('Times (UTC, multiple per day allowed)')}
+								</div>
+								<div className="flex flex-col gap-2">
+									{timeSlots.map((time, index) => (
+										<div key={index} className="flex items-center gap-2">
+											<input
+												type="time"
+												value={time}
+												onChange={(e) => {
+													const value = e.target.value.slice(0, 5);
+													setTimeSlots((prev) => {
+														const next = [...prev];
+														next[index] = value;
+														return next;
+													});
+												}}
+												className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+											/>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												onClick={() =>
+													setTimeSlots((prev) =>
+														prev.filter((_, i) => i !== index),
+													)
+												}
+												disabled={timeSlots.length <= 1}
+											>
+												<Trash2 className="h-4 w-4" />
+											</Button>
+										</div>
+									))}
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onClick={() => setTimeSlots((prev) => [...prev, '09:00'])}
+									>
+										{t('Add time')}
+									</Button>
+								</div>
+							</div>
+
+							<Button
+								type="button"
+								onClick={() => saveScheduleMutation.mutate()}
+								disabled={
+									saveScheduleMutation.isPending ||
+									selectedDays.length === 0 ||
+									timeSlots.length === 0
+								}
+							>
+								{saveScheduleMutation.isPending ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										{t('Saving…')}
+									</>
+								) : (
+									<>{t('Save recurring schedule')}</>
+								)}
+							</Button>
+						</CardContent>
+					</Card>
 
 					{todayReport && (
 						<Card className="bg-muted/50">

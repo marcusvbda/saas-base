@@ -8,6 +8,7 @@ import {
 	jsonb,
 	date,
 	unique,
+	integer,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -174,6 +175,55 @@ export const dailyReports = pgTable(
 	},
 	(t) => ({
 		userReportFromUnique: unique().on(t.userId, t.reportDate, t.fromDate),
+	}),
+);
+
+export const reportSchedules = pgTable('report_schedules', {
+	id: serial('id').primaryKey(),
+	userId: varchar('user_id', { length: 36 })
+		.notNull()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	/**
+	 * Days of week when the report should run.
+	 * 0 = Sunday, 6 = Saturday (UTC).
+	 */
+	daysOfWeek: jsonb('days_of_week').$type<number[]>().notNull(),
+	/**
+	 * Times of day in HH:MM (24h, UTC) when the report should be generated.
+	 * Multiple times per day are allowed (e.g. ["09:00", "14:00"]).
+	 */
+	timesUtc: jsonb('times_utc').$type<string[]>().notNull(),
+	/**
+	 * Optional locale override for generated reports (e.g. "pt" or "en").
+	 */
+	locale: varchar('locale', { length: 10 }),
+	active: boolean('active').notNull().default(true),
+	createdAt: timestamp('created_at', { withTimezone: true })
+		.defaultNow()
+		.notNull(),
+	updatedAt: timestamp('updated_at', { withTimezone: true })
+		.defaultNow()
+		.notNull(),
+});
+
+export const reportScheduleRuns = pgTable(
+	'report_schedule_runs',
+	{
+		id: serial('id').primaryKey(),
+		scheduleId: integer('schedule_id')
+			.notNull()
+			.references(() => reportSchedules.id, { onDelete: 'cascade' }),
+		/**
+		 * Exact UTC datetime for which this schedule was executed (minute precision).
+		 * Used to guarantee we don't generate the same scheduled report twice.
+		 */
+		scheduledFor: timestamp('scheduled_for', { withTimezone: true }).notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(t) => ({
+		scheduleRunUnique: unique().on(t.scheduleId, t.scheduledFor),
 	}),
 );
 
