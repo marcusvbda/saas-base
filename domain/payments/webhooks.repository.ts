@@ -1,20 +1,21 @@
-import Repository from '@/database/repository';
+import { db } from '@/database';
+import { stripeWebhookEvents } from '@/database/schema';
+import { eq } from 'drizzle-orm';
 
-export default class WebhooksRepository extends Repository {
+export default class WebhooksRepository {
 	async insertWebhookEvent(eventId: string, eventType: string) {
-		await this.execute(
-			'INSERT INTO `stripe_webhook_events` (`event_id`, `event_type`) VALUES (:event_id, :event_type)',
-			{ event_id: eventId, event_type: eventType },
-		);
+		await db.insert(stripeWebhookEvents).values({
+			eventId,
+			eventType,
+		});
 	}
 
-	private readonly columns =
-		'`id`, `event_id`, `event_type`, `processed_at`';
-
 	async findWebhookEvent(eventId: string) {
-		return await this.findOne(
-			`SELECT ${this.columns} FROM \`stripe_webhook_events\` WHERE \`event_id\` = :event_id`,
-			{ event_id: eventId },
-		);
+		const rows = await db
+			.select()
+			.from(stripeWebhookEvents)
+			.where(eq(stripeWebhookEvents.eventId, eventId))
+			.limit(1);
+		return rows[0] ?? null;
 	}
 }

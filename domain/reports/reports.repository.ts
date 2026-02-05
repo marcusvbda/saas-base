@@ -1,4 +1,6 @@
-import Repository from '@/database/repository';
+import { db } from '@/database';
+import { dailyReports } from '@/database/schema';
+import { eq, and, gte, lte, desc, asc } from 'drizzle-orm';
 
 export type ReportStatus = 'processing' | 'ready' | 'failed';
 
@@ -22,25 +24,50 @@ export type DailyReportInput = {
 	enhanced?: boolean;
 };
 
-export default class ReportsRepository extends Repository {
-	private readonly columns =
-		'`id`, `user_id`, `report_date`, `from_date`, `content`, `status`, `enhanced_at`, `created_at`, `updated_at`';
+function toReport(row: typeof dailyReports.$inferSelect): DailyReport {
+	return {
+		id: row.id,
+		user_id: row.userId,
+		report_date: row.reportDate,
+		from_date: row.fromDate,
+		content: row.content,
+		status: row.status as ReportStatus,
+		enhanced_at: row.enhancedAt
+			? row.enhancedAt instanceof Date
+				? row.enhancedAt.toISOString()
+				: String(row.enhancedAt)
+			: null,
+		created_at:
+			row.createdAt instanceof Date
+				? row.createdAt.toISOString()
+				: String(row.createdAt),
+		updated_at:
+			row.updatedAt instanceof Date
+				? row.updatedAt.toISOString()
+				: String(row.updatedAt),
+	};
+}
 
+export default class ReportsRepository {
 	async findById(id: number): Promise<DailyReport | null> {
-		return this.findOne(
-			`SELECT ${this.columns} FROM \`daily_reports\` WHERE \`id\` = :id`,
-			{ id },
-		) as Promise<DailyReport | null>;
+		const rows = await db
+			.select()
+			.from(dailyReports)
+			.where(eq(dailyReports.id, id))
+			.limit(1);
+		return rows[0] ? toReport(rows[0]) : null;
 	}
 
 	async findByIdForUser(
 		userId: string,
 		id: number,
 	): Promise<DailyReport | null> {
-		return this.findOne(
-			`SELECT ${this.columns} FROM \`daily_reports\` WHERE \`user_id\` = :userId AND \`id\` = :id`,
-			{ userId, id },
-		) as Promise<DailyReport | null>;
+		const rows = await db
+			.select()
+			.from(dailyReports)
+			.where(and(eq(dailyReports.userId, userId), eq(dailyReports.id, id)))
+			.limit(1);
+		return rows[0] ? toReport(rows[0]) : null;
 	}
 
 	async findByUserAndDate(
@@ -55,17 +82,27 @@ export default class ReportsRepository extends Repository {
 		reportDate: string,
 		fromDate: string,
 	): Promise<DailyReport | null> {
-		return this.findOne(
-			`SELECT ${this.columns} FROM \`daily_reports\` WHERE \`user_id\` = :userId AND \`report_date\` = :reportDate AND \`from_date\` = :fromDate`,
-			{ userId, reportDate, fromDate },
-		) as Promise<DailyReport | null>;
+		const rows = await db
+			.select()
+			.from(dailyReports)
+			.where(
+				and(
+					eq(dailyReports.userId, userId),
+					eq(dailyReports.reportDate, reportDate),
+					eq(dailyReports.fromDate, fromDate),
+				),
+			)
+			.limit(1);
+		return rows[0] ? toReport(rows[0]) : null;
 	}
 
 	async findAllByUserId(userId: string): Promise<DailyReport[]> {
-		return this.findMany(
-			`SELECT ${this.columns} FROM \`daily_reports\` WHERE \`user_id\` = :userId ORDER BY \`report_date\` DESC`,
-			{ userId },
-		) as Promise<DailyReport[]>;
+		const rows = await db
+			.select()
+			.from(dailyReports)
+			.where(eq(dailyReports.userId, userId))
+			.orderBy(desc(dailyReports.reportDate));
+		return rows.map(toReport);
 	}
 
 	async findAllByUserIdAndDateRange(
@@ -73,10 +110,18 @@ export default class ReportsRepository extends Repository {
 		fromDate: string,
 		toDate: string,
 	): Promise<DailyReport[]> {
-		return this.findMany(
-			`SELECT ${this.columns} FROM \`daily_reports\` WHERE \`user_id\` = :userId AND \`report_date\` >= :fromDate AND \`report_date\` <= :toDate ORDER BY \`report_date\` ASC`,
-			{ userId, fromDate, toDate },
-		) as Promise<DailyReport[]>;
+		const rows = await db
+			.select()
+			.from(dailyReports)
+			.where(
+				and(
+					eq(dailyReports.userId, userId),
+					gte(dailyReports.reportDate, fromDate),
+					lte(dailyReports.reportDate, toDate),
+				),
+			)
+			.orderBy(asc(dailyReports.reportDate));
+		return rows.map(toReport);
 	}
 
 	async upsert(userId: string, data: DailyReportInput): Promise<number> {
@@ -88,47 +133,40 @@ export default class ReportsRepository extends Repository {
 			fromDate,
 		);
 		const enhanced = data.enhanced ?? false;
+
 		if (existing) {
+			const updates: Partial<typeof dailyReports.$inferInsert> = {
+				content: data.content,
+				status: status as 'ready',
+				updatedAt: new Date(),
+			};
 			if (enhanced) {
-				await this.execute(
-					`UPDATE \`daily_reports\` SET \`content\` = :content, \`status\` = :status, \`enhanced_at\` = CURRENT_TIMESTAMP, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
-					{
-						id: existing.id,
-						userId,
-						content: data.content,
-						status,
-					},
-				);
-			} else {
-				await this.execute(
-					`UPDATE \`daily_reports\` SET \`content\` = :content, \`status\` = :status, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
-					{
-						id: existing.id,
-						userId,
-						content: data.content,
-						status,
-					},
-				);
+				updates.enhancedAt = new Date();
 			}
+			await db
+				.update(dailyReports)
+				.set(updates)
+				.where(
+					and(
+						eq(dailyReports.id, existing.id),
+						eq(dailyReports.userId, userId),
+					),
+				);
 			return existing.id;
 		}
-		const insertColumns = enhanced
-			? '`user_id`, `report_date`, `from_date`, `content`, `status`, `enhanced_at`'
-			: '`user_id`, `report_date`, `from_date`, `content`, `status`';
-		const insertValues = enhanced
-			? ':userId, :reportDate, :fromDate, :content, :status, CURRENT_TIMESTAMP'
-			: ':userId, :reportDate, :fromDate, :content, :status';
-		const result = (await this.execute(
-			`INSERT INTO \`daily_reports\` (${insertColumns}) VALUES (${insertValues}) RETURNING id`,
-			{
+
+		const [row] = await db
+			.insert(dailyReports)
+			.values({
 				userId,
 				reportDate: data.report_date,
 				fromDate,
 				content: data.content,
-				status,
-			},
-		)) as { insertId?: number };
-		return result.insertId ?? 0;
+				status: status as 'ready',
+				...(enhanced && { enhancedAt: new Date() }),
+			})
+			.returning({ id: dailyReports.id });
+		return row?.id ?? 0;
 	}
 
 	async updateStatus(
@@ -136,10 +174,10 @@ export default class ReportsRepository extends Repository {
 		id: number,
 		status: ReportStatus,
 	): Promise<void> {
-		await this.execute(
-			`UPDATE \`daily_reports\` SET \`status\` = :status, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
-			{ id, userId, status },
-		);
+		await db
+			.update(dailyReports)
+			.set({ status, updatedAt: new Date() })
+			.where(and(eq(dailyReports.id, id), eq(dailyReports.userId, userId)));
 	}
 
 	async updateContent(
@@ -148,23 +186,22 @@ export default class ReportsRepository extends Repository {
 		content: string,
 		enhanced?: boolean,
 	): Promise<void> {
+		const updates: Partial<typeof dailyReports.$inferInsert> = {
+			content,
+			updatedAt: new Date(),
+		};
 		if (enhanced) {
-			await this.execute(
-				`UPDATE \`daily_reports\` SET \`content\` = :content, \`enhanced_at\` = CURRENT_TIMESTAMP, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
-				{ id, userId, content },
-			);
-		} else {
-			await this.execute(
-				`UPDATE \`daily_reports\` SET \`content\` = :content, \`updated_at\` = CURRENT_TIMESTAMP WHERE \`id\` = :id AND \`user_id\` = :userId`,
-				{ id, userId, content },
-			);
+			updates.enhancedAt = new Date();
 		}
+		await db
+			.update(dailyReports)
+			.set(updates)
+			.where(and(eq(dailyReports.id, id), eq(dailyReports.userId, userId)));
 	}
 
 	async deleteByIdForUser(userId: string, id: number): Promise<void> {
-		await this.execute(
-			`DELETE FROM \`daily_reports\` WHERE \`user_id\` = :userId AND \`id\` = :id`,
-			{ userId, id },
-		);
+		await db
+			.delete(dailyReports)
+			.where(and(eq(dailyReports.id, id), eq(dailyReports.userId, userId)));
 	}
 }

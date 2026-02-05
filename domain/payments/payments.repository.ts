@@ -1,54 +1,75 @@
-import Repository from '@/database/repository';
+import { db } from '@/database';
+import { checkoutSessions } from '@/database/schema';
+import { eq, and, sql, like } from 'drizzle-orm';
 
-export default class PaymentsRepository extends Repository {
-	async createCheckoutSession(params: any) {
-		return await this.execute(
-			'INSERT INTO `checkout_sessions` (`session_id`, `resource_id`, `resource_type`) VALUES (:session_id, :resource_id, :resource_type) RETURNING id',
-			params,
-		);
+export default class PaymentsRepository {
+	async createCheckoutSession(params: {
+		session_id: string;
+		resource_id: string;
+		resource_type: string;
+	}) {
+		const [row] = await db
+			.insert(checkoutSessions)
+			.values({
+				sessionId: params.session_id,
+				resourceId: params.resource_id,
+				resourceType: params.resource_type,
+			})
+			.returning({ id: checkoutSessions.id });
+		return { insertId: row?.id ?? 0 };
 	}
 
 	async deleteCheckoutSession(sessionId: string) {
-		return await this.execute(
-			'DELETE FROM `checkout_sessions` WHERE `session_id` = :session_id',
-			{ session_id: sessionId },
-		);
+		await db
+			.delete(checkoutSessions)
+			.where(eq(checkoutSessions.sessionId, sessionId));
 	}
 
-	private readonly columns =
-		'`id`, `session_id`, `resource_id`, `resource_type`, `status`, `created_at`, `updated_at`';
-
 	async findCheckoutSession(sessionId: string) {
-		return await this.findOne(
-			`SELECT ${this.columns} FROM \`checkout_sessions\` WHERE \`session_id\` = :session_id`,
-			{ session_id: sessionId },
-		);
+		const rows = await db
+			.select()
+			.from(checkoutSessions)
+			.where(eq(checkoutSessions.sessionId, sessionId))
+			.limit(1);
+		return rows[0] ?? null;
 	}
 
 	async updateCheckoutSession(sessionId: string, status: string) {
-		return await this.execute(
-			'UPDATE `checkout_sessions` SET `status` = :status, `updated_at` = CURRENT_TIMESTAMP WHERE `session_id` = :session_id',
-			{ session_id: sessionId, status },
-		);
+		await db
+			.update(checkoutSessions)
+			.set({ status, updatedAt: new Date() })
+			.where(eq(checkoutSessions.sessionId, sessionId));
 	}
 
 	async findCheckoutSessionBySubscriptionId(subscriptionId: string) {
-		return await this.findOne(
-			`SELECT ${this.columns} FROM \`checkout_sessions\` WHERE \`resource_id\` LIKE :subscription_id AND \`resource_type\` = :resource_type`,
-			{
-				subscription_id: `%|${subscriptionId}%`,
-				resource_type: 'plan_subscription',
-			},
-		);
+		const rows = await db
+			.select()
+			.from(checkoutSessions)
+			.where(
+				and(
+					like(checkoutSessions.resourceId, `%|${subscriptionId}%`),
+					eq(checkoutSessions.resourceType, 'plan_subscription'),
+				),
+			)
+			.limit(1);
+		return rows[0] ?? null;
 	}
 
 	async findCheckoutSessionByUserIdAndType(
 		userId: string,
 		resourceType: string,
 	) {
-		return await this.findOne(
-			`SELECT ${this.columns} FROM \`checkout_sessions\` WHERE \`resource_id\` LIKE :userId AND \`resource_type\` = :resource_type ORDER BY \`created_at\` DESC LIMIT 1`,
-			{ userId: `${userId}%`, resource_type: resourceType },
-		);
+		const rows = await db
+			.select()
+			.from(checkoutSessions)
+			.where(
+				and(
+					like(checkoutSessions.resourceId, `${userId}%`),
+					eq(checkoutSessions.resourceType, resourceType),
+				),
+			)
+			.orderBy(sql`${checkoutSessions.createdAt} DESC`)
+			.limit(1);
+		return rows[0] ?? null;
 	}
 }

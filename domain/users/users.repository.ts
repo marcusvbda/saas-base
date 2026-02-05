@@ -1,4 +1,14 @@
-import Repository from '@/database/repository';
+import { db } from '@/database';
+import {
+	user,
+	account,
+	verification,
+	userSubscriptions,
+	userBilling,
+} from '@/database/schema';
+import { eq, and, sql } from 'drizzle-orm';
+
+type TransactionClient = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 type BillingData = {
 	card_number?: string | null;
@@ -7,159 +17,146 @@ type BillingData = {
 	card_expiry_year?: string | null;
 	card_cvv?: string | null;
 };
-const userColumns =
-	'`id`, `name`, `email`, `emailVerified`, `image`, `createdAt`, `updatedAt`';
-const verificationColumns =
-	'`id`, `identifier`, `value`, `expiresAt`, `createdAt`, `updatedAt`';
-const userBillingColumns =
-	'`id`, `user_id`, `card_number`, `card_holder_name`, `card_expiry_month`, `card_expiry_year`, `card_cvv`';
-const userSubscriptionColumns =
-	'`id`, `user_id`, `subscription_id`, `plan`, `stripe_customer_id`, `status`, `current_period_start`, `current_period_end`, `cancel_at_period_end`, `created_at`, `updated_at`';
 
-export default class UserRepository extends Repository {
+export default class UserRepository {
 	async findById(id: string) {
-		return await this.findOne(
-			`SELECT ${userColumns} FROM \`user\` WHERE id = :id`,
-			{ id },
-		);
+		const rows = await db.select().from(user).where(eq(user.id, id)).limit(1);
+		return rows[0] ?? null;
 	}
 
 	async findByEmail(email: string) {
-		return await this.findOne(
-			`SELECT ${userColumns} FROM \`user\` WHERE email = :email`,
-			{ email },
-		);
+		const rows = await db
+			.select()
+			.from(user)
+			.where(eq(user.email, email))
+			.limit(1);
+		return rows[0] ?? null;
 	}
 
-	async updatePassword(userId: string, hashedPassword: string) {
-		await this.execute(
-			"UPDATE `account` SET `password` = :password, `updatedAt` = CURRENT_TIMESTAMP WHERE `userId` = :userId AND `providerId` = 'credential'",
-			{ password: hashedPassword, userId },
-		);
+	async updatePassword(
+		userId: string,
+		hashedPassword: string,
+		tx?: TransactionClient,
+	) {
+		const target = (tx ?? db) as typeof db;
+		await target
+			.update(account)
+			.set({
+				password: hashedPassword,
+				updatedAt: new Date(),
+			})
+			.where(
+				and(eq(account.userId, userId), eq(account.providerId, 'credential')),
+			);
 	}
 
 	async createUserVerification(userId: string, token: string) {
-		await this.execute(
-			"INSERT INTO `verification` (`id`, `identifier`, `value`, `expiresAt`) VALUES (gen_random_uuid(), :identifier, :value, NOW() + INTERVAL '1 hour')",
-			{
-				identifier: `reset-password:${userId}`,
-				value: token,
-			},
-		);
-	}
-
-	async findPasswordVerificationToken(token: string) {
-		return await this.findOne(
-			`SELECT ${verificationColumns} FROM \`verification\` WHERE \`value\` = :token AND \`expiresAt\` > NOW()`,
-			{ token },
-		);
-	}
-
-	async deletePasswordVerificationToken(token: string) {
-		await this.execute('DELETE FROM `verification` WHERE `value` = :token', {
-			token,
+		await db.insert(verification).values({
+			id: crypto.randomUUID(),
+			identifier: `reset-password:${userId}`,
+			value: token,
+			expiresAt: new Date(Date.now() + 60 * 60 * 1000),
 		});
 	}
 
+	async findPasswordVerificationToken(token: string) {
+		const rows = await db
+			.select()
+			.from(verification)
+			.where(
+				and(
+					eq(verification.value, token),
+					sql`${verification.expiresAt} > NOW()`,
+				),
+			)
+			.limit(1);
+		return rows[0] ?? null;
+	}
+
+	async deletePasswordVerificationToken(token: string, tx?: TransactionClient) {
+		const target = (tx ?? db) as typeof db;
+		await target.delete(verification).where(eq(verification.value, token));
+	}
+
 	async verifyUserById(userId: string) {
-		await this.execute(
-			'UPDATE `user` SET `emailVerified` = TRUE WHERE `id` = :userId',
-			{ userId },
-		);
+		await db
+			.update(user)
+			.set({ emailVerified: true })
+			.where(eq(user.id, userId));
 	}
 
 	async updateUserData(userId: string, data: { name?: string }) {
-		if (!data.name) {
-			return;
-		}
-		await this.execute(
-			'UPDATE `user` SET `name` = :name WHERE `id` = :userId',
-			{ name: data.name, userId },
-		);
+		if (!data.name) return;
+		await db.update(user).set({ name: data.name }).where(eq(user.id, userId));
 	}
 
 	async findBillingByUserId(userId: string) {
-		return await this.findOne(
-			`SELECT ${userBillingColumns} FROM \`user_billing\` WHERE \`user_id\` = :userId`,
-			{ userId },
-		);
+		const rows = await db
+			.select()
+			.from(userBilling)
+			.where(eq(userBilling.userId, userId))
+			.limit(1);
+		return rows[0] ?? null;
 	}
 
 	async createBilling(userId: string, data: BillingData) {
 		const allowedFields = [
-			'card_number',
-			'card_holder_name',
-			'card_expiry_month',
-			'card_expiry_year',
-			'card_cvv',
+			'cardNumber',
+			'cardHolderName',
+			'cardExpiryMonth',
+			'cardExpiryYear',
+			'cardCvv',
 		] as const;
-
-		const fields: string[] = ['user_id'];
-		const values: string[] = [':userId'];
-		const params: Record<string, any> = { userId };
-
-		for (const field of allowedFields) {
-			if (data[field] !== undefined) {
-				fields.push(field);
-				values.push(`:${field}`);
-				params[field] = data[field] ?? null;
-			}
-		}
-
-		await this.execute(
-			`INSERT INTO \`user_billing\` (\`${fields.join('`, `')}\`) VALUES (${values.join(', ')})`,
-			params,
-		);
+		const values: Record<string, unknown> = {
+			userId,
+			cardNumber: data.card_number ?? null,
+			cardHolderName: data.card_holder_name ?? null,
+			cardExpiryMonth: data.card_expiry_month ?? null,
+			cardExpiryYear: data.card_expiry_year ?? null,
+			cardCvv: data.card_cvv ?? null,
+		};
+		await db
+			.insert(userBilling)
+			.values(values as typeof userBilling.$inferInsert);
 	}
 
 	async updateBilling(id: number, data: BillingData) {
-		const allowedFields = [
-			'card_number',
-			'card_holder_name',
-			'card_expiry_month',
-			'card_expiry_year',
-			'card_cvv',
-		] as const;
-
-		const updates: string[] = [];
-		const params: Record<string, any> = { id };
-
-		for (const field of allowedFields) {
-			if (data[field] !== undefined) {
-				updates.push(`\`${field}\` = :${field}`);
-				params[field] = data[field] ?? null;
-			}
-		}
-
-		if (updates.length === 0) {
-			return;
-		}
-
-		await this.execute(
-			`UPDATE \`user_billing\` SET ${updates.join(', ')} WHERE \`id\` = :id`,
-			params,
-		);
+		const updates: Partial<typeof userBilling.$inferInsert> = {};
+		if (data.card_number !== undefined) updates.cardNumber = data.card_number;
+		if (data.card_holder_name !== undefined)
+			updates.cardHolderName = data.card_holder_name;
+		if (data.card_expiry_month !== undefined)
+			updates.cardExpiryMonth = data.card_expiry_month;
+		if (data.card_expiry_year !== undefined)
+			updates.cardExpiryYear = data.card_expiry_year;
+		if (data.card_cvv !== undefined) updates.cardCvv = data.card_cvv;
+		if (Object.keys(updates).length === 0) return;
+		await db.update(userBilling).set(updates).where(eq(userBilling.id, id));
 	}
 
 	async getSubscriptionByUserId(userId: string) {
-		return await this.findOne(
-			`SELECT ${userSubscriptionColumns} FROM \`user_subscriptions\` WHERE \`user_id\` = :userId ORDER BY \`updated_at\` DESC`,
-			{ userId },
-		);
+		const rows = await db
+			.select()
+			.from(userSubscriptions)
+			.where(eq(userSubscriptions.userId, userId))
+			.orderBy(sql`${userSubscriptions.updatedAt} DESC`)
+			.limit(1);
+		return rows[0] ?? null;
 	}
 
 	async getSubscriptionBySubscriptionId(subscriptionId: string) {
-		return await this.findOne(
-			`SELECT ${userSubscriptionColumns} FROM \`user_subscriptions\` WHERE \`subscription_id\` = :subscriptionId`,
-			{ subscriptionId },
-		);
+		const rows = await db
+			.select()
+			.from(userSubscriptions)
+			.where(eq(userSubscriptions.subscriptionId, subscriptionId))
+			.limit(1);
+		return rows[0] ?? null;
 	}
 
 	async deleteSubscriptionBySubscriptionId(subscriptionId: string) {
-		await this.execute(
-			'DELETE FROM `user_subscriptions` WHERE `subscription_id` = :subscriptionId',
-			{ subscriptionId },
-		);
+		await db
+			.delete(userSubscriptions)
+			.where(eq(userSubscriptions.subscriptionId, subscriptionId));
 	}
 
 	async createSubscription(
@@ -174,27 +171,16 @@ export default class UserRepository extends Repository {
 			cancel_at_period_end?: boolean;
 		},
 	) {
-		await this.execute(
-			`INSERT INTO \`user_subscriptions\` (
-				\`user_id\`, \`plan\`, \`subscription_id\`,
-				\`stripe_customer_id\`, \`status\`,
-				\`current_period_start\`, \`current_period_end\`, \`cancel_at_period_end\`
-			) VALUES (
-				:userId, :plan, :subscription_id,
-				:stripe_customer_id, :status,
-				:current_period_start, :current_period_end, :cancel_at_period_end
-			)`,
-			{
-				userId,
-				plan: data.plan,
-				subscription_id: data.subscription_id,
-				stripe_customer_id: data.stripe_customer_id ?? null,
-				status: data.status ?? 'active',
-				current_period_start: data.current_period_start ?? null,
-				current_period_end: data.current_period_end ?? null,
-				cancel_at_period_end: data.cancel_at_period_end ?? false,
-			},
-		);
+		await db.insert(userSubscriptions).values({
+			userId,
+			plan: data.plan,
+			subscriptionId: data.subscription_id,
+			stripeCustomerId: data.stripe_customer_id ?? null,
+			status: (data.status ?? 'active') as 'active',
+			currentPeriodStart: data.current_period_start ?? null,
+			currentPeriodEnd: data.current_period_end ?? null,
+			cancelAtPeriodEnd: data.cancel_at_period_end ?? false,
+		});
 	}
 
 	async updateSubscription(
@@ -209,36 +195,30 @@ export default class UserRepository extends Repository {
 			cancel_at_period_end?: boolean;
 		},
 	) {
-		const allowed: (keyof typeof data)[] = [
-			'plan',
-			'subscription_id',
-			'stripe_customer_id',
-			'status',
-			'current_period_start',
-			'current_period_end',
-			'cancel_at_period_end',
-		];
-		const updates: string[] = [];
-		const params: Record<string, unknown> = { id };
+		const updates: Partial<typeof userSubscriptions.$inferInsert> = {};
+		if (data.plan !== undefined) updates.plan = data.plan;
+		if (data.subscription_id !== undefined)
+			updates.subscriptionId = data.subscription_id;
+		if (data.stripe_customer_id !== undefined)
+			updates.stripeCustomerId = data.stripe_customer_id;
+		if (data.status !== undefined) updates.status = data.status as 'active';
+		if (data.current_period_start !== undefined)
+			updates.currentPeriodStart = data.current_period_start;
+		if (data.current_period_end !== undefined)
+			updates.currentPeriodEnd = data.current_period_end;
+		if (data.cancel_at_period_end !== undefined)
+			updates.cancelAtPeriodEnd = data.cancel_at_period_end;
+		if (Object.keys(updates).length === 0) return;
+		updates.updatedAt = new Date();
+		await db
+			.update(userSubscriptions)
+			.set(updates)
+			.where(eq(userSubscriptions.id, id));
+	}
 
-		for (const k of allowed) {
-			const v = data[k];
-			if (v === undefined) continue;
-			if (k === 'cancel_at_period_end') {
-				updates.push('`cancel_at_period_end` = :cancel_at_period_end');
-				params.cancel_at_period_end = Boolean(v);
-				continue;
-			}
-			updates.push(`\`${k}\` = :${k}`);
-			params[k as string] = v;
-		}
-
-		if (updates.length === 0) return;
-
-		updates.push('`updated_at` = CURRENT_TIMESTAMP');
-		await this.execute(
-			`UPDATE \`user_subscriptions\` SET ${updates.join(', ')} WHERE \`id\` = :id`,
-			params,
-		);
+	async transaction<T>(
+		callback: (tx: TransactionClient) => Promise<T>,
+	): Promise<T> {
+		return db.transaction(callback);
 	}
 }

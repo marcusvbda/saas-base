@@ -60,16 +60,9 @@ export default class UserService {
 
 		const hashedPassword = await hashPassword(newPassword);
 
-		// Transação para garantir atomicidade: update + delete devem ser atômicos
-		await this.repository.transaction(async (connection) => {
-			await connection.execute(
-				"UPDATE `account` SET `password` = :password, `updatedAt` = CURRENT_TIMESTAMP WHERE `userId` = :userId AND `providerId` = 'credential'",
-				{ password: hashedPassword, userId },
-			);
-			await connection.execute(
-				'DELETE FROM `verification` WHERE `value` = :token',
-				{ token },
-			);
+		await this.repository.transaction(async (tx) => {
+			await this.repository.updatePassword(userId, hashedPassword, tx);
+			await this.repository.deletePasswordVerificationToken(token, tx);
 		});
 
 		return true;
@@ -145,11 +138,11 @@ export default class UserService {
 
 		const status = (sub as { status?: string }).status ?? 'active';
 		const cancelAtPeriodEnd = Boolean(
-			(sub as { cancel_at_period_end?: number })?.cancel_at_period_end,
+			(sub as { cancelAtPeriodEnd?: boolean })?.cancelAtPeriodEnd,
 		);
-		const currentPeriodEnd = (sub as { current_period_end?: Date | null })
-			?.current_period_end
-			? new Date((sub as { current_period_end: Date }).current_period_end)
+		const currentPeriodEnd = (sub as { currentPeriodEnd?: Date | null })
+			?.currentPeriodEnd
+			? new Date((sub as { currentPeriodEnd: Date }).currentPeriodEnd)
 			: null;
 
 		const hasAccess =
@@ -203,7 +196,7 @@ export default class UserService {
 		const subscription = await this.getSubscriptionByUserId(userId);
 		if (!subscription) return null;
 		await this.gateway.cancelSubscription(
-			(subscription as { subscription_id: string }).subscription_id,
+			(subscription as { subscriptionId: string }).subscriptionId,
 			cancelAtPeriodEnd,
 		);
 		if (cancelAtPeriodEnd) {
@@ -214,11 +207,9 @@ export default class UserService {
 				},
 			);
 		}
-		const end = (subscription as { current_period_end: Date | null })
-			?.current_period_end
-			? new Date(
-					(subscription as { current_period_end: Date }).current_period_end,
-				)
+		const end = (subscription as { currentPeriodEnd: Date | null })
+			?.currentPeriodEnd
+			? new Date((subscription as { currentPeriodEnd: Date }).currentPeriodEnd)
 			: null;
 		return { cancelAtPeriodEnd, currentPeriodEnd: end };
 	}
@@ -233,13 +224,10 @@ export default class UserService {
 
 	async reactivateSubscription(userId: string): Promise<boolean> {
 		const sub = await this.repository.getSubscriptionByUserId(userId);
-		if (
-			!sub ||
-			!(sub as { cancel_at_period_end: boolean })?.cancel_at_period_end
-		)
+		if (!sub || !(sub as { cancelAtPeriodEnd: boolean })?.cancelAtPeriodEnd)
 			return false;
 		await this.gateway.reactivateSubscription(
-			(sub as { subscription_id: string }).subscription_id,
+			(sub as { subscriptionId: string }).subscriptionId,
 		);
 		await this.repository.updateSubscription((sub as { id: number }).id, {
 			cancel_at_period_end: false,

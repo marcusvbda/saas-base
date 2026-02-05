@@ -101,8 +101,9 @@ export default class PaymentsService {
 			locale: locale === 'auto' ? undefined : locale,
 		});
 		await this.repository.createCheckoutSession({
-			...metadata,
 			session_id: checkoutSession.id,
+			resource_id: metadata.resource_id,
+			resource_type: metadata.resource_type,
 		});
 		return checkoutSession;
 	}
@@ -172,7 +173,7 @@ export default class PaymentsService {
 		}
 
 		const stripeSub = await this.gateway.retrieveSubscription(
-			(subscription?.subscription_id as string) ?? '',
+			(subscription?.subscriptionId as string) ?? '',
 		);
 		const firstItem = (
 			stripeSub as { items?: { data?: { price?: { currency?: string } }[] } }
@@ -192,7 +193,7 @@ export default class PaymentsService {
 			'month',
 		);
 		await this.gateway.updateSubscription(
-			(subscription?.subscription_id as string) ?? '',
+			(subscription?.subscriptionId as string) ?? '',
 			priceId,
 			{
 				resource_id: `${userId}|${newPlan}`,
@@ -201,7 +202,7 @@ export default class PaymentsService {
 		);
 
 		const updatedSub = await this.gateway.retrieveSubscription(
-			(subscription?.subscription_id as string) ?? '',
+			(subscription?.subscriptionId as string) ?? '',
 		);
 		const start = (updatedSub as { current_period_start?: number })
 			.current_period_start;
@@ -210,7 +211,7 @@ export default class PaymentsService {
 
 		await this.userService.upsertSubscription(userId, {
 			plan: newPlan,
-			subscription_id: subscription.subscription_id,
+			subscription_id: subscription.subscriptionId,
 			current_period_start: start != null ? new Date(start * 1000) : undefined,
 			current_period_end: end != null ? new Date(end * 1000) : undefined,
 		});
@@ -335,8 +336,8 @@ export default class PaymentsService {
 			await this.webhooksRepo.insertWebhookEvent(eventId, eventType);
 			return true;
 		} catch (err: unknown) {
-			const mysqlErr = err as { code?: string; errno?: number };
-			if (mysqlErr?.code === 'ER_DUP_ENTRY' || mysqlErr?.errno === 1062) {
+			const pgErr = err as { code?: string };
+			if (pgErr?.code === '23505') {
 				return false;
 			}
 			throw err;
@@ -461,7 +462,7 @@ export default class PaymentsService {
 		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
 		if (row) {
 			await this.userService.updateSubscriptionStatus(
-				(row as { user_id: string }).user_id,
+				(row as { userId: string }).userId,
 				'active',
 			);
 		}
@@ -476,7 +477,7 @@ export default class PaymentsService {
 		const row = await this.userService.getSubscriptionBySubscriptionId(subId);
 		if (row) {
 			await this.userService.updateSubscriptionStatus(
-				(row as { user_id: string }).user_id,
+				(row as { userId: string }).userId,
 				'past_due',
 			);
 		}
@@ -556,7 +557,7 @@ export default class PaymentsService {
 		);
 		if (row) {
 			await this.userService.updateSubscriptionStatus(
-				(row as { user_id: string }).user_id,
+				(row as { userId: string }).userId,
 				'canceled',
 			);
 		}
@@ -584,7 +585,7 @@ export default class PaymentsService {
 				console.error('Failed to cancel subscription after refund:', err);
 			}
 			await this.userService.updateSubscriptionStatus(
-				(row as { user_id: string }).user_id,
+				(row as { userId: string }).userId,
 				'canceled',
 			);
 		}

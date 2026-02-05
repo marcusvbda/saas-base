@@ -13,8 +13,8 @@ It must remain explicit, auditable, and predictable.
 ## Stack
 
 - PostgreSQL
-- Raw SQL with named parameters (converted to $1, $2 in the repository layer)
-- No ORM (performance and control first)
+- Drizzle ORM with postgres.js driver
+- Schema-first migrations via drizzle-kit
 
 ---
 
@@ -29,18 +29,18 @@ Architectural violations are treated as bugs.
 
 ---
 
-## SQL Standards
+## Query Standards
 
-- Explicit column selection is mandatory (`SELECT *` is forbidden)
-- Named parameters are required
+- Prefer Drizzle query builder over raw SQL
+- Explicit column selection when using `select()`
 - No dynamic SQL string concatenation
-- Queries must be readable, formatted, and auditable
+- Queries must be readable and auditable
 
 Rules:
 
-- No implicit joins
+- Use Drizzle's type-safe API for CRUD
+- Raw SQL via `sql` template only when necessary
 - Joins must be explicit and justified
-- Subqueries must remain readable
 
 ---
 
@@ -76,15 +76,15 @@ Rules:
 
 ## Migrations
 
-- Migrations are SQL-only files
+- Use `drizzle-kit generate` to create migrations from schema
+- Run `npm run db:migrate` to apply migrations
 - Migrations are immutable once applied
 - One logical change per migration
-- Never add comment in columns or tables
 
 Rules:
 
 - No data + schema changes in the same migration
-- Migrations must be reversible when possible
+- Schema changes go through `database/schema.ts`
 - Migration names must describe intent clearly
 
 ---
@@ -129,9 +129,9 @@ Rules:
 
 ## Non-Negotiables
 
-- No ORM
-- No `SELECT *`
-- No dynamic SQL
+- Drizzle ORM only (no raw pg driver access)
+- Explicit column selection when using select
+- No dynamic SQL string concatenation
 - No business logic in repositories
 
 Predictability over convenience.  

@@ -1,4 +1,6 @@
-import Repository from '@/database/repository';
+import { db } from '@/database';
+import { repositoryIntegrations } from '@/database/schema';
+import { eq, and, desc } from 'drizzle-orm';
 
 export type RepositoryIntegrationStatus =
 	| 'pending'
@@ -7,7 +9,6 @@ export type RepositoryIntegrationStatus =
 
 export type RepositoryIntegrationType = 'repository' | 'ai';
 
-/** project id (string) -> branch names to ignore */
 export type IgnoredBranchesByProject = Record<string, string[]>;
 
 export type RepositoryIntegration = {
@@ -36,75 +37,94 @@ export type RepositoryIntegrationInput = {
 	model?: string | null;
 };
 
-export default class IntegrationsRepository extends Repository {
-	private readonly columns =
-		'`id`, `user_id`, `provider`, `type`, `token`, `status`, `projects`, `ignored_branches`, `base_url`, `model`, `created_at`, `updated_at`';
-
-	private parseIntegration(row: any): RepositoryIntegration {
-		return {
-			...row,
-			base_url: row.base_url ?? null,
-			model: row.model ?? null,
-			projects: row.projects
-				? typeof row.projects === 'string'
-					? JSON.parse(row.projects)
-					: row.projects
-				: null,
-			ignored_branches: (() => {
-				const raw = row.ignored_branches
-					? typeof row.ignored_branches === 'string'
-						? JSON.parse(row.ignored_branches)
-						: row.ignored_branches
-					: null;
-				if (!raw) return null;
-				// Legacy: was array of branch names; now we store per project
-				if (Array.isArray(raw)) return {};
-				return raw as IgnoredBranchesByProject;
-			})(),
-		};
+function toIntegration(
+	row: typeof repositoryIntegrations.$inferSelect,
+): RepositoryIntegration {
+	const projects = row.projects
+		? typeof row.projects === 'string'
+			? JSON.parse(row.projects as string)
+			: row.projects
+		: null;
+	let ignoredBranches = row.ignoredBranches
+		? typeof row.ignoredBranches === 'string'
+			? JSON.parse(row.ignoredBranches as string)
+			: row.ignoredBranches
+		: null;
+	if (ignoredBranches && Array.isArray(ignoredBranches)) {
+		ignoredBranches = {};
 	}
+	return {
+		id: row.id,
+		user_id: row.userId,
+		provider: row.provider,
+		type: row.type as RepositoryIntegrationType,
+		token: row.token,
+		status: row.status as RepositoryIntegrationStatus,
+		projects: projects as number[] | null,
+		ignored_branches: ignoredBranches as IgnoredBranchesByProject | null,
+		base_url: row.baseUrl ?? null,
+		model: row.model ?? null,
+		created_at: row.createdAt.toISOString?.() ?? String(row.createdAt),
+		updated_at: row.updatedAt.toISOString?.() ?? String(row.updatedAt),
+	};
+}
 
+export default class IntegrationsRepository {
 	async findById(id: string) {
-		const row = await this.findOne(
-			`SELECT ${this.columns} FROM \`repository_integrations\` WHERE \`id\` = :id`,
-			{ id },
-		);
-		return row ? this.parseIntegration(row) : null;
+		const rows = await db
+			.select()
+			.from(repositoryIntegrations)
+			.where(eq(repositoryIntegrations.id, parseInt(id, 10)))
+			.limit(1);
+		return rows[0] ? toIntegration(rows[0]) : null;
 	}
 
 	async findAllByUserId(userId: string) {
-		const rows = await this.findMany(
-			`SELECT ${this.columns} FROM \`repository_integrations\` WHERE \`user_id\` = :userId ORDER BY \`created_at\` DESC`,
-			{ userId },
-		);
-		return rows.map((row) => this.parseIntegration(row));
+		const rows = await db
+			.select()
+			.from(repositoryIntegrations)
+			.where(eq(repositoryIntegrations.userId, userId))
+			.orderBy(desc(repositoryIntegrations.createdAt));
+		return rows.map(toIntegration);
 	}
 
 	async findAllByUserIdAndType(
 		userId: string,
 		type: RepositoryIntegrationType,
 	): Promise<RepositoryIntegration[]> {
-		const rows = await this.findMany(
-			`SELECT ${this.columns} FROM \`repository_integrations\` WHERE \`user_id\` = :userId AND \`type\` = :type ORDER BY \`created_at\` DESC`,
-			{ userId, type },
-		);
-		return rows.map((row) => this.parseIntegration(row));
+		const rows = await db
+			.select()
+			.from(repositoryIntegrations)
+			.where(
+				and(
+					eq(repositoryIntegrations.userId, userId),
+					eq(repositoryIntegrations.type, type),
+				),
+			)
+			.orderBy(desc(repositoryIntegrations.createdAt));
+		return rows.map(toIntegration);
 	}
 
 	async findFirstByUserIdAndType(
 		userId: string,
 		type: RepositoryIntegrationType,
 	): Promise<RepositoryIntegration | null> {
-		const rows = await this.findAllByUserIdAndType(userId, type);
-		return rows[0] ?? null;
+		const list = await this.findAllByUserIdAndType(userId, type);
+		return list[0] ?? null;
 	}
 
 	async findByIdForUser(userId: string, id: number) {
-		const row = await this.findOne(
-			`SELECT ${this.columns} FROM \`repository_integrations\` WHERE \`user_id\` = :userId AND \`id\` = :id`,
-			{ userId, id },
-		);
-		return row ? this.parseIntegration(row) : null;
+		const rows = await db
+			.select()
+			.from(repositoryIntegrations)
+			.where(
+				and(
+					eq(repositoryIntegrations.userId, userId),
+					eq(repositoryIntegrations.id, id),
+				),
+			)
+			.limit(1);
+		return rows[0] ? toIntegration(rows[0]) : null;
 	}
 
 	async create(
@@ -112,25 +132,24 @@ export default class IntegrationsRepository extends Repository {
 		data: RepositoryIntegrationInput,
 	): Promise<number> {
 		const type = data.type ?? 'repository';
-		const status = type === 'ai' ? 'connected' : 'pending';
-		const result = (await this.execute(
-			`INSERT INTO \`repository_integrations\` (\`user_id\`, \`provider\`, \`type\`, \`token\`, \`status\`, \`projects\`, \`ignored_branches\`, \`base_url\`, \`model\`)
-       VALUES (:userId, :provider, :type, :token, :status, :projects, :ignored_branches, :base_url, :model) RETURNING id`,
-			{
+		const status = (type === 'ai' ? 'connected' : 'pending') as
+			| 'pending'
+			| 'connected';
+		const [row] = await db
+			.insert(repositoryIntegrations)
+			.values({
 				userId,
 				provider: data.provider,
 				type,
 				token: data.token,
 				status,
-				projects: data.projects ? JSON.stringify(data.projects) : null,
-				ignored_branches: data.ignored_branches
-					? JSON.stringify(data.ignored_branches)
-					: null,
-				base_url: data.base_url ?? null,
+				projects: data.projects ?? null,
+				ignoredBranches: data.ignored_branches ?? null,
+				baseUrl: data.base_url ?? null,
 				model: data.model ?? null,
-			},
-		)) as { insertId?: number };
-		return result.insertId ?? 0;
+			})
+			.returning({ id: repositoryIntegrations.id });
+		return row?.id ?? 0;
 	}
 
 	async update(
@@ -138,44 +157,36 @@ export default class IntegrationsRepository extends Repository {
 		userId: string,
 		data: Partial<RepositoryIntegrationInput>,
 	) {
-		const allowed: (keyof RepositoryIntegrationInput)[] = [
-			'provider',
-			'token',
-			'status',
-			'projects',
-			'ignored_branches',
-			'base_url',
-			'model',
-		];
-		const updates: string[] = [];
-		const params: Record<string, unknown> = { id, userId };
-
-		for (const key of allowed) {
-			const value = data[key];
-			if (value === undefined) continue;
-			if (key === 'projects' || key === 'ignored_branches') {
-				updates.push(`\`${key}\` = :${key}`);
-				params[key] = value ? JSON.stringify(value) : null;
-			} else {
-				updates.push(`\`${key}\` = :${key}`);
-				params[key] = value;
-			}
-		}
-
-		if (!updates.length) return;
-
-		await this.execute(
-			`UPDATE \`repository_integrations\`
-       SET ${updates.join(', ')}, \`updated_at\` = CURRENT_TIMESTAMP
-       WHERE \`id\` = :id AND \`user_id\` = :userId`,
-			params,
-		);
+		const updates: Partial<typeof repositoryIntegrations.$inferInsert> = {};
+		if (data.provider !== undefined) updates.provider = data.provider;
+		if (data.token !== undefined) updates.token = data.token;
+		if (data.status !== undefined) updates.status = data.status as 'pending';
+		if (data.projects !== undefined) updates.projects = data.projects;
+		if (data.ignored_branches !== undefined)
+			updates.ignoredBranches = data.ignored_branches;
+		if (data.base_url !== undefined) updates.baseUrl = data.base_url;
+		if (data.model !== undefined) updates.model = data.model;
+		if (Object.keys(updates).length === 0) return;
+		updates.updatedAt = new Date();
+		await db
+			.update(repositoryIntegrations)
+			.set(updates)
+			.where(
+				and(
+					eq(repositoryIntegrations.id, id),
+					eq(repositoryIntegrations.userId, userId),
+				),
+			);
 	}
 
 	async delete(id: number, userId: string) {
-		await this.execute(
-			'DELETE FROM `repository_integrations` WHERE `id` = :id AND `user_id` = :userId',
-			{ id, userId },
-		);
+		await db
+			.delete(repositoryIntegrations)
+			.where(
+				and(
+					eq(repositoryIntegrations.id, id),
+					eq(repositoryIntegrations.userId, userId),
+				),
+			);
 	}
 }
