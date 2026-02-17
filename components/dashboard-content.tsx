@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import Link from 'next/link';
 import {
@@ -54,7 +54,6 @@ type DailyReport = {
 	updated_at: string;
 };
 
-
 /** Normalize report_date from API (ISO or YYYY-MM-DD) to YYYY-MM-DD for comparison */
 function reportDateOnly(reportDate: string | undefined): string {
 	if (!reportDate) return '';
@@ -86,7 +85,6 @@ function todayISO(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
-
 export default function DashboardContent() {
 	const { t, locale, router } = useLocale();
 	const { session } = useSession();
@@ -116,7 +114,6 @@ export default function DashboardContent() {
 			return hasProcessing ? 4000 : false;
 		},
 	});
-
 
 	const generateMutation = useMutation({
 		mutationFn: async () => {
@@ -226,7 +223,6 @@ export default function DashboardContent() {
 		},
 	});
 
-
 	const hasRepositoryIntegration = integrations.length > 0;
 	const isIntegrationConnected = integrations.some(
 		(i: Integration) => i.status === 'connected',
@@ -244,7 +240,6 @@ export default function DashboardContent() {
 			),
 		[reports, today],
 	);
-
 
 	const startEdit = useCallback((report: DailyReport) => {
 		setEditingId(report.id);
@@ -376,71 +371,69 @@ export default function DashboardContent() {
 				<section className="space-y-4">
 					<h2 className="text-lg font-semibold">{t("Today's Draft")}</h2>
 					<div className="space-y-4">
-							{!todayReport && (
-								<Card>
-									<CardContent>
-										<p className="text-muted-foreground text-sm mb-4">
-											{t(
-												'Generate a report for a period. Choose the start date (From) and end date (To).',
-											)}
-										</p>
-										<div className="flex flex-wrap items-end gap-4">
-											<div className="flex flex-col gap-1.5">
-												<label
-													htmlFor="report-from-date"
-													className="text-sm font-medium"
-												>
-													{t('From')}
-												</label>
-												<input
-													id="report-from-date"
-													type="date"
-													value={fromDate}
-													onChange={(e) =>
-														setFromDate(e.target.value.slice(0, 10))
-													}
-													className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-												/>
-											</div>
-											<div className="flex flex-col gap-1.5">
-												<label
-													htmlFor="report-to-date"
-													className="text-sm font-medium"
-												>
-													{t('To')}
-												</label>
-												<input
-													id="report-to-date"
-													type="date"
-													value={toDate}
-													onChange={(e) =>
-														setToDate(e.target.value.slice(0, 10))
-													}
-													className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-												/>
-											</div>
-											<Button
-												onClick={() => generateMutation.mutate()}
-												disabled={
-													generateMutation.isPending || !isIntegrationConnected
-												}
+						{!todayReport && (
+							<Card>
+								<CardContent>
+									<p className="text-muted-foreground text-sm mb-4">
+										{t(
+											'Generate a report for a period. Choose the start date (From) and end date (To).',
+										)}
+									</p>
+									<div className="flex flex-wrap items-end gap-4">
+										<div className="flex flex-col gap-1.5">
+											<label
+												htmlFor="report-from-date"
+												className="text-sm font-medium"
 											>
-												{generateMutation.isPending ? (
-													<>
-														<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-														{t('Generating…')}
-													</>
-												) : (
-													<>
-														<FileText className="mr-2 h-4 w-4" />
-														{t('Generate report')}
-													</>
-												)}
-											</Button>
+												{t('From')}
+											</label>
+											<input
+												id="report-from-date"
+												type="date"
+												value={fromDate}
+												onChange={(e) =>
+													setFromDate(e.target.value.slice(0, 10))
+												}
+												className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+											/>
 										</div>
-									</CardContent>
-								</Card>
-							)}
+										<div className="flex flex-col gap-1.5">
+											<label
+												htmlFor="report-to-date"
+												className="text-sm font-medium"
+											>
+												{t('To')}
+											</label>
+											<input
+												id="report-to-date"
+												type="date"
+												value={toDate}
+												onChange={(e) => setToDate(e.target.value.slice(0, 10))}
+												className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+											/>
+										</div>
+										<Button
+											onClick={() => generateMutation.mutate()}
+											disabled={
+												generateMutation.isPending || !isIntegrationConnected
+											}
+										>
+											{generateMutation.isPending ? (
+												<>
+													<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+													{t('Generating…')}
+												</>
+											) : (
+												<>
+													<FileText className="mr-2 h-4 w-4" />
+													{t('Generate report')}
+												</>
+											)}
+										</Button>
+									</div>
+								</CardContent>
+							</Card>
+						)}
 					</div>
 
 					{todayReport && (
