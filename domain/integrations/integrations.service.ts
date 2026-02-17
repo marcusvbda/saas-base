@@ -1,4 +1,3 @@
-import { pusher } from '@/lib/pusher';
 import { NotFoundError } from '@/domain/errors';
 import IntegrationsRepository, {
 	RepositoryIntegration,
@@ -72,12 +71,6 @@ export default class IntegrationsService {
 		await this.repository.update(integration.id, integration.user_id, {
 			status,
 		});
-
-		pusher.trigger(
-			`integration-${integration.id}`,
-			'on-integration-status-update',
-			{ status },
-		);
 	}
 
 	private async validateGitLabToken(token: string): Promise<boolean> {

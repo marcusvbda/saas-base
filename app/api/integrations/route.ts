@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireServerAuth } from '@/lib/better-auth/server';
 import IntegrationsService from '@/domain/integrations/integrations.service';
 import { domainErrorToNextResponse } from '@/lib/domain-error-to-http';
-import { publishJson } from '@/lib/qstash';
 import { z } from 'zod';
 import { RepositoryIntegrationType } from '@/domain/integrations/integrations.repository';
 
@@ -97,10 +96,9 @@ export async function POST(request: NextRequest) {
 				createData,
 			);
 			if (!isAi) {
-				await publishJson({
-					service: 'IntegrationsService',
-					action: 'validateTokenStatus',
-					payload: { id },
+				// Execute token validation asynchronously
+				service.validateTokenStatus({ id }).catch((error) => {
+					console.error('Error validating token status:', error);
 				});
 			}
 			return NextResponse.json({ data: { success: true } }, { status: 201 });
@@ -181,10 +179,9 @@ export async function PUT(request: NextRequest) {
 			await service.updateIntegration(session.user.id, id, updateData);
 
 			if (token !== undefined && isRepoIntegration) {
-				await publishJson({
-					service: 'IntegrationsService',
-					action: 'validateTokenStatus',
-					payload: { id },
+				// Execute token validation asynchronously
+				service.validateTokenStatus({ id }).catch((error) => {
+					console.error('Error validating token status:', error);
 				});
 			}
 

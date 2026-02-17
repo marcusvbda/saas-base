@@ -33,7 +33,6 @@ import {
 } from './ui/select';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Loading from './loading';
-import SocketClient from './socket-client';
 import { Spinner } from './ui/spinner';
 import { Checkbox } from './ui/checkbox';
 import { Input } from './ui/input';
@@ -364,60 +363,34 @@ export const IntegrationCard = ({
 	const { t } = useLocale();
 
 	return (
-		<SocketClient
-			eventName="on-integration-status-update"
-			channelName={`integration-${integration.id}`}
-			initialData={{
-				status: integration.status,
-			}}
-			onChange={(data: any) => {
-				queryClient.setQueryData(['integrations', 'repository'], (old: any) => {
-					return old.map((item: any) => {
-						if (item.id === integration.id) {
-							return { ...item, status: data.status };
-						}
-						return item;
-					});
-				});
-			}}
-			onSubscribed={() => {
-				queryClient.invalidateQueries({
-					queryKey: ['integrations', 'repository'],
-				});
-			}}
-			render={(data: any) => {
-				return (
-					<Card
-						key={integration.id}
-						className="cursor-pointer transition hover:border-primary/40 hover:shadow-sm"
-						onClick={onClick}
-					>
-						<CardHeader className="flex-row items-center justify-between gap-4">
-							<div className="flex items-center gap-3">
-								<div className="bg-primary/5 flex h-10 w-10 items-center justify-center rounded-lg">
-									<GitlabIcon className="h-5 w-5 text-primary" />
-								</div>
-								<div>
-									<CardTitle className="text-sm">
-										{integration?.provider === 'gitlab' && 'GitLab workspace'}
-									</CardTitle>
-									<CardDescription className="text-xs">
-										{['gitlab'].includes(integration?.provider)
-											? t('Personal access token')
-											: t('Personal access token')}
-									</CardDescription>
-								</div>
-							</div>
-							<div className="flex items-center gap-2">
-								<Badge className={statusClasses(data.status)}>
-									{statusLabel(data.status)}
-								</Badge>
-							</div>
-						</CardHeader>
-					</Card>
-				);
-			}}
-		/>
+		<Card
+			key={integration.id}
+			className="cursor-pointer transition hover:border-primary/40 hover:shadow-sm"
+			onClick={onClick}
+		>
+			<CardHeader className="flex-row items-center justify-between gap-4">
+				<div className="flex items-center gap-3">
+					<div className="bg-primary/5 flex h-10 w-10 items-center justify-center rounded-lg">
+						<GitlabIcon className="h-5 w-5 text-primary" />
+					</div>
+					<div>
+						<CardTitle className="text-sm">
+							{integration?.provider === 'gitlab' && 'GitLab workspace'}
+						</CardTitle>
+						<CardDescription className="text-xs">
+							{['gitlab'].includes(integration?.provider)
+								? t('Personal access token')
+								: t('Personal access token')}
+						</CardDescription>
+					</div>
+				</div>
+				<div className="flex items-center gap-2">
+					<Badge className={statusClasses(integration.status)}>
+						{statusLabel(integration.status)}
+					</Badge>
+				</div>
+			</CardHeader>
+		</Card>
 	);
 };
 

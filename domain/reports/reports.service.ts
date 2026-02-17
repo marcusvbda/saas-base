@@ -1,16 +1,7 @@
-import { pusher } from '@/lib/pusher';
 import { enhanceReportContent } from './enhance-report';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import IntegrationsRepository from '@/domain/integrations/integrations.repository';
 import ReportsRepository, { DailyReport } from './reports.repository';
-import ReportSchedulesRepository, {
-	ReportSchedule,
-	ReportScheduleInput,
-} from './report-schedules.repository';
-import {
-	ensureRecurringReportsSchedule,
-	deleteRecurringReportsSchedule,
-} from '@/lib/qstash';
 
 function formatReportDate(date: Date): string {
 	return date.toISOString().slice(0, 10);
@@ -349,7 +340,6 @@ export default class ReportsService {
 	constructor(
 		private reportsRepo: ReportsRepository = new ReportsRepository(),
 		private integrationsRepo: IntegrationsRepository = new IntegrationsRepository(),
-		private schedulesRepo: ReportSchedulesRepository = new ReportSchedulesRepository(),
 	) {}
 
 	async listUserReports(userId: string): Promise<DailyReport[]> {
@@ -413,14 +403,13 @@ export default class ReportsService {
 				[labels.addIntegration],
 				[],
 			);
-			await this.reportsRepo.upsert(userId, {
-				report_date: effectiveTo,
-				from_date: effectiveFrom,
-				content,
-				status: 'ready',
-			});
-			this.triggerReportReady(userId, effectiveTo);
-			return { report_date: effectiveTo, from_date: effectiveFrom };
+		await this.reportsRepo.upsert(userId, {
+			report_date: effectiveTo,
+			from_date: effectiveFrom,
+			content,
+			status: 'ready',
+		});
+		return { report_date: effectiveTo, from_date: effectiveFrom };
 		}
 
 		const baseUrl =
@@ -465,7 +454,6 @@ export default class ReportsService {
 			status: 'ready',
 			enhanced,
 		});
-		this.triggerReportReady(userId, effectiveTo);
 		return { report_date: effectiveTo, from_date: effectiveFrom };
 	}
 
@@ -539,178 +527,4 @@ export default class ReportsService {
 		await this.reportsRepo.deleteByIdForUser(payload.userId, payload.reportId);
 	}
 
-	// -------------------------------------------------------------------------
-	// Recurring report schedules
-	// -------------------------------------------------------------------------
-
-	async listUserReportSchedules(userId: string): Promise<ReportSchedule[]> {
-		return this.schedulesRepo.findAllByUserId(userId);
-	}
-
-	async saveUserReportSchedule(payload: {
-		userId: string;
-		id?: number;
-		days_of_week: number[];
-		times_utc: string[];
-		locale?: string;
-		active?: boolean;
-	}): Promise<{ id: number }> {
-		const { userId, id, days_of_week, times_utc, locale, active } = payload;
-
-		if (!days_of_week?.length) {
-			throw new ValidationError('At least one day of week is required');
-		}
-		if (!times_utc?.length) {
-			throw new ValidationError('At least one time is required');
-		}
-
-		const normalizedDays = Array.from(
-			new Set(
-				days_of_week.map((d) => {
-					if (d < 0 || d > 6 || !Number.isInteger(d)) {
-						throw new ValidationError('Invalid day of week');
-					}
-					return d;
-				}),
-			),
-		).sort();
-
-		// Horários sempre em UTC no formato HH:MM, 00–23
-		const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
-		const normalizedTimes = Array.from(
-			new Set(
-				times_utc.map((t) => {
-					const trimmed = t.trim();
-					if (!timeRegex.test(trimmed)) {
-						throw new ValidationError('Invalid time format, expected HH:MM');
-					}
-					return trimmed;
-				}),
-			),
-		).sort();
-
-		const input: ReportScheduleInput = {
-			days_of_week: normalizedDays,
-			times_utc: normalizedTimes,
-			locale,
-			active,
-		};
-
-		if (id) {
-			const existing = await this.schedulesRepo.findByIdForUser(userId, id);
-			if (!existing) {
-				throw new NotFoundError('Schedule not found');
-			}
-			await this.schedulesRepo.update(userId, id, input);
-			// Após qualquer alteração, sincroniza o schedule global no QStash
-			// com o estado atual (se existe pelo menos um agendamento ativo ou não).
-			await this.syncGlobalRecurringScheduleToggle();
-			return { id };
-		}
-
-		const newId = await this.schedulesRepo.create(userId, input);
-		// Mesmo para novos schedules (ativos ou não), sincroniza o schedule global.
-		await this.syncGlobalRecurringScheduleToggle();
-		return { id: newId };
-	}
-
-	async deleteUserReportSchedule(payload: {
-		userId: string;
-		scheduleId: number;
-	}): Promise<void> {
-		const existing = await this.schedulesRepo.findByIdForUser(
-			payload.userId,
-			payload.scheduleId,
-		);
-		if (!existing) {
-			throw new NotFoundError('Schedule not found');
-		}
-		await this.schedulesRepo.delete(payload.userId, payload.scheduleId);
-		// Se o usuário removeu um agendamento, verifica se ainda existem
-		// schedules ativos; se não houver, remove o schedule global do QStash.
-		await this.syncGlobalRecurringScheduleToggle();
-	}
-
-	/**
-	 * Executado pelo QStash (ou outro scheduler) para gerar automaticamente
-	 * os relatórios conforme as recorrências do banco.
-	 *
-	 * Importante: horários são interpretados em UTC.
-	 */
-	async runRecurringReports(payload?: {
-		now?: string | Date;
-	}): Promise<{ processed: number }> {
-		const now = payload?.now ? new Date(payload.now) : new Date();
-		if (Number.isNaN(now.getTime())) {
-			throw new ValidationError('Invalid now value');
-		}
-
-		// Normaliza para o minuto atual (sem segundos/milisegundos)
-		const current = new Date(
-			Date.UTC(
-				now.getUTCFullYear(),
-				now.getUTCMonth(),
-				now.getUTCDate(),
-				now.getUTCHours(),
-				now.getUTCMinutes(),
-				0,
-				0,
-			),
-		);
-
-		const weekday = current.getUTCDay(); // 0-6
-		const timeStr = current.toISOString().slice(11, 16); // HH:MM
-
-		const schedules = await this.schedulesRepo.findAllActive();
-		let processed = 0;
-
-		for (const schedule of schedules) {
-			if (!schedule.days_of_week.includes(weekday)) continue;
-			if (!schedule.times_utc.includes(timeStr)) continue;
-
-			const scheduledFor = current;
-			const alreadyRan = await this.schedulesRepo.hasRun(
-				schedule.id,
-				scheduledFor,
-			);
-			if (alreadyRan) continue;
-
-			// Relatório apenas da data da execução (um único dia).
-			const executionDate = scheduledFor.toISOString().slice(0, 10);
-
-			await this.generateReport({
-				userId: schedule.user_id,
-				from_date: executionDate,
-				to_date: executionDate,
-				locale: schedule.locale ?? undefined,
-			});
-
-			await this.schedulesRepo.markRun(schedule.id, scheduledFor);
-			processed += 1;
-		}
-
-		return { processed };
-	}
-
-	private triggerReportReady(userId: string, reportDate: string): void {
-		pusher.trigger(`reports-${userId}`, 'report-ready', {
-			report_date: reportDate,
-		});
-	}
-
-	/**
-	 * Garante que o schedule global do QStash reflita o estado atual dos
-	 * agendamentos no banco:
-	 *
-	 * - Se existe pelo menos um schedule ativo -> garante que o schedule global exista.
-	 * - Se não existe nenhum schedule ativo -> remove o schedule global, se existir.
-	 */
-	private async syncGlobalRecurringScheduleToggle(): Promise<void> {
-		const active = await this.schedulesRepo.findAllActive();
-		if (active.length > 0) {
-			await ensureRecurringReportsSchedule();
-		} else {
-			await deleteRecurringReportsSchedule();
-		}
-	}
 }

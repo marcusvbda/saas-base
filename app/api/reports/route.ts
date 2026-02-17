@@ -3,7 +3,6 @@ import { requireServerAuth } from '@/lib/better-auth/server';
 import ReportsService from '@/domain/reports/reports.service';
 import IntegrationsRepository from '@/domain/integrations/integrations.repository';
 import { domainErrorToNextResponse } from '@/lib/domain-error-to-http';
-import { publishJson } from '@/lib/qstash';
 import { z } from 'zod';
 
 async function hasConnectedRepositoryIntegration(
@@ -121,15 +120,14 @@ export async function POST(request: NextRequest) {
 					fromDate,
 					toDate,
 				);
-				await publishJson({
-					service: 'ReportsService',
-					action: 'generateReport',
-					payload: {
-						userId: session.user.id,
-						from_date: report.from_date,
-						to_date: report.report_date,
-						locale,
-					},
+				// Execute report generation asynchronously
+				service.generateReport({
+					userId: session.user.id,
+					from_date: report.from_date,
+					to_date: report.report_date,
+					locale,
+				}).catch((error) => {
+					console.error('Error generating report:', error);
 				});
 				return NextResponse.json({
 					data: {
@@ -166,10 +164,13 @@ export async function POST(request: NextRequest) {
 					typeof json.locale === 'string' ? json.locale : undefined;
 				const service = new ReportsService();
 				await service.setReportProcessing(session.user.id, reportId);
-				await publishJson({
-					service: 'ReportsService',
-					action: 'regenerateReport',
-					payload: { userId: session.user.id, reportId, locale },
+				// Execute report regeneration asynchronously
+				service.regenerateReport({
+					userId: session.user.id,
+					reportId,
+					locale,
+				}).catch((error) => {
+					console.error('Error regenerating report:', error);
 				});
 				return NextResponse.json({
 					data: { report_id: reportId, status: 'processing' as const },
