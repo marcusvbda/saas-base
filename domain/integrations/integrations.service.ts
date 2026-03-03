@@ -1,4 +1,8 @@
-import { NotFoundError } from '@/domain/errors';
+import {
+	NotFoundError,
+	BusinessRuleError,
+	InfrastructureError,
+} from '@/domain/errors';
 import IntegrationsRepository, {
 	RepositoryIntegration,
 	RepositoryIntegrationInput,
@@ -97,7 +101,7 @@ export default class IntegrationsService {
 			throw new NotFoundError('GitLab integration not found');
 		}
 		if (integration.status !== 'connected') {
-			throw new Error('Integration not connected');
+			throw new BusinessRuleError('Integration not connected');
 		}
 
 		const baseUrl = process.env.GITLAB_API_URL || 'https://gitlab.com';
@@ -108,15 +112,20 @@ export default class IntegrationsService {
 					headers: { 'PRIVATE-TOKEN': integration.token },
 				},
 			);
-			if (!res.ok) throw new Error('Failed to fetch projects');
+			if (!res.ok) {
+				throw new InfrastructureError('Failed to fetch GitLab projects');
+			}
 			const projects = await res.json();
 			return projects.map((p: any) => ({
 				id: p.id,
 				name: p.name,
 				path_with_namespace: p.path_with_namespace,
 			}));
-		} catch {
-			throw new Error('Failed to fetch GitLab projects');
+		} catch (error) {
+			if (error instanceof InfrastructureError) {
+				throw error;
+			}
+			throw new InfrastructureError('Failed to fetch GitLab projects');
 		}
 	}
 
@@ -134,7 +143,7 @@ export default class IntegrationsService {
 			throw new NotFoundError('GitLab integration not found');
 		}
 		if (integration.status !== 'connected') {
-			throw new Error('Integration not connected');
+			throw new BusinessRuleError('Integration not connected');
 		}
 
 		const baseUrl = process.env.GITLAB_API_URL || 'https://gitlab.com';
@@ -153,7 +162,9 @@ export default class IntegrationsService {
 						headers: { 'PRIVATE-TOKEN': integration.token },
 					},
 				);
-				if (!res.ok) throw new Error('Failed to fetch branches');
+				if (!res.ok) {
+					throw new InfrastructureError('Failed to fetch GitLab branches');
+				}
 				const branches = (await res.json()) as Array<{ name: string }>;
 				if (branches.length === 0) break;
 				for (const b of branches) {
@@ -163,8 +174,11 @@ export default class IntegrationsService {
 				page += 1;
 			}
 			return allBranches;
-		} catch {
-			throw new Error('Failed to fetch GitLab branches');
+		} catch (error) {
+			if (error instanceof InfrastructureError) {
+				throw error;
+			}
+			throw new InfrastructureError('Failed to fetch GitLab branches');
 		}
 	}
 }

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -58,22 +59,37 @@ type Integration = {
 type Mode = 'create' | 'edit';
 
 export default function RepositoryProvider() {
+	const [visible, setVisible] = useState(false);
 	const { t } = useLocale();
 	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 	const [mode, setMode] = useState<Mode>('create');
 	const [selected, setSelected] = useState<Integration | null>(null);
 	const [token, setToken] = useState('');
 	const [provider, setProvider] = useState<'gitlab'>('gitlab');
-	const { data, isLoading } = useQuery({
+	const { data, isLoading, error: integrationsError } = useQuery({
 		queryKey: ['integrations', 'repository'],
-		queryFn: () =>
-			fetch('/api/integrations?type=repository').then((res) => res.json()),
+		queryFn: async () => {
+			const res = await fetch('/api/integrations?type=repository');
+			const json = await res.json();
+			if (!res.ok || (json && json.error)) {
+				throw new Error(
+					json?.error?.message || 'Failed to load integrations',
+				);
+			}
+			return json as Integration[];
+		},
 		refetchInterval: (query) => {
 			const list = query.state.data as Integration[] | undefined;
 			const hasPending = list?.some((i) => i.status === 'pending');
 			return hasPending ? 4000 : false;
 		},
 	});
+	useEffect(() => {
+		if (data && data.length > 0) {
+			setVisible(true);
+		}
+	}, [data]);
+
 	const queryClient = useQueryClient();
 
 	const createMutation = useMutation({
@@ -206,9 +222,14 @@ export default function RepositoryProvider() {
 	};
 
 	const emptyState = useMemo(
-		() => !isLoading && (!data || data.length === 0),
-		[isLoading, data],
+		() =>
+			!isLoading &&
+			!integrationsError &&
+			(!data || (Array.isArray(data) && data.length === 0)),
+		[isLoading, data, integrationsError],
 	);
+
+	if (!visible) return null;
 
 	return (
 		<div className="space-y-6">
@@ -225,7 +246,13 @@ export default function RepositoryProvider() {
 
 			{isLoading && <Loading />}
 
-			{emptyState && (
+			{integrationsError && (
+				<p className="text-sm text-muted-foreground">
+					{t('Error loading integrations')}
+				</p>
+			)}
+
+			{emptyState && !integrationsError && (
 				<EmptyState
 					title={t('No integrations yet')}
 					description={t(
@@ -237,7 +264,7 @@ export default function RepositoryProvider() {
 				/>
 			)}
 
-			{!emptyState && (
+			{!emptyState && !integrationsError && (
 				<div className="flex flex-col gap-4">
 					{data?.map((integration, index) => (
 						<div key={index} className="flex flex-col gap-4">
@@ -339,8 +366,6 @@ export const IntegrationCard = ({
 	integration: Integration;
 	onClick: () => void;
 }) => {
-	const queryClient = useQueryClient();
-
 	const statusLabel = (status: IntegrationStatus) => {
 		if (status === 'connected') return t('Connected');
 		if (status === 'disconnected') return t('Disconnected');
@@ -419,12 +444,24 @@ const IntegrationConfig = ({ integration }: { integration: Integration }) => {
 		return () => clearTimeout(timer);
 	}, [projectFilter]);
 
-	const { data: projects, isLoading: isLoadingProjects } = useQuery({
+	const {
+		data: projects,
+		isLoading: isLoadingProjects,
+		error: projectsError,
+	} = useQuery({
 		queryKey: ['gitlab-projects', integration.id],
-		queryFn: () =>
-			fetch(`/api/integrations/${integration.id}/gitlab/projects`).then((res) =>
-				res.json(),
-			),
+		queryFn: async () => {
+			const res = await fetch(
+				`/api/integrations/${integration.id}/gitlab/projects`,
+			);
+			const json = await res.json();
+			if (!res.ok || (json && json.error)) {
+				throw new Error(
+					json?.error?.message || 'Failed to load GitLab projects',
+				);
+			}
+			return json;
+		},
 	});
 
 	const saveMutation = useMutation({
@@ -489,7 +526,8 @@ const IntegrationConfig = ({ integration }: { integration: Integration }) => {
 	};
 
 	const filteredProjects = useMemo(() => {
-		if (!projects) return [];
+		if (projectsError) return [];
+		if (!projects || !Array.isArray(projects)) return [];
 		if (!debouncedProjectFilter) return projects;
 		return (projects as Array<{ path_with_namespace: string }>).filter(
 			(project) =>
@@ -497,7 +535,7 @@ const IntegrationConfig = ({ integration }: { integration: Integration }) => {
 					.toLowerCase()
 					.includes(debouncedProjectFilter.toLowerCase()),
 		);
-	}, [projects, debouncedProjectFilter]);
+	}, [projects, debouncedProjectFilter, projectsError]);
 
 	return (
 		<div className="w-full border-0 mt-8">
@@ -522,85 +560,94 @@ const IntegrationConfig = ({ integration }: { integration: Integration }) => {
 						)}
 					</div>
 
-					{isLoadingProjects ? (
-						<div className="flex items-center gap-2 text-sm text-muted-foreground">
-							<Spinner className="size-4" />
-							{t('Loading projects...')}
-						</div>
+					{projectsError ? (
+						<p className="text-sm text-muted-foreground">
+							{t('Error loading projects')}
+						</p>
 					) : (
 						<>
-							<Input
-								placeholder={t('Filter projects...')}
-								value={projectFilter}
-								onChange={(e) => setProjectFilter(e.target.value)}
-								className="h-9"
-							/>
-							<div className="max-h-64 space-y-2 overflow-y-auto rounded-md border p-3">
-								{filteredProjects.length === 0 ? (
-									<p className="text-sm text-muted-foreground">
-										{projectFilter
-											? t('No projects found matching filter')
-											: t('No projects found')}
-									</p>
-								) : (
-									filteredProjects.map(
-										(project: {
-											id: number;
-											name: string;
-											path_with_namespace: string;
-										}) => (
-											<div
-												key={project.id}
-												className="flex items-center space-x-2"
-											>
-												<Checkbox
-													id={`project-${project.id}`}
-													checked={selectedProjects.includes(project.id)}
-													onCheckedChange={() => toggleProject(project.id)}
-												/>
-												<label
-													htmlFor={`project-${project.id}`}
-													className="cursor-pointer text-sm"
-												>
-													{project.path_with_namespace}
-												</label>
-											</div>
-										),
-									)
-								)}
-							</div>
-
-							{selectedProjects.length > 0 && (
-								<div className="space-y-3 mt-8">
-									<label className="text-sm font-medium">
-										{t('Branches to ignore in reports')}
-									</label>
-									<div className="space-y-3 mt-2">
-										{selectedProjects.map((projectId) => {
-											const project = (projects as any[])?.find(
-												(p: any) => p.id === projectId,
-											);
-											return (
-												<ProjectBranchCard
-													key={projectId}
-													integrationId={integration.id}
-													projectId={projectId}
-													projectName={
-														project?.path_with_namespace ??
-														`Project ${projectId}`
-													}
-													selectedBranches={
-														selectedBranchesByProject[String(projectId)] || []
-													}
-													onToggleBranch={(branchName) =>
-														toggleBranch(projectId, branchName)
-													}
-													t={t}
-												/>
-											);
-										})}
-									</div>
+							{isLoadingProjects ? (
+								<div className="flex items-center gap-2 text-sm text-muted-foreground">
+									<Spinner className="size-4" />
+									{t('Loading projects...')}
 								</div>
+							) : (
+								<>
+									<Input
+										placeholder={t('Filter projects...')}
+										value={projectFilter}
+										onChange={(e) => setProjectFilter(e.target.value)}
+										className="h-9"
+									/>
+									<div className="max-h-64 space-y-2 overflow-y-auto rounded-md border p-3">
+										{(filteredProjects || []).length === 0 ? (
+											<p className="text-sm text-muted-foreground">
+												{projectFilter
+													? t('No projects found matching filter')
+													: t('No projects found')}
+											</p>
+										) : (
+											(filteredProjects || []).map(
+												(project: {
+													id: number;
+													name: string;
+													path_with_namespace: string;
+												}) => (
+													<div
+														key={project.id}
+														className="flex items-center space-x-2"
+													>
+														<Checkbox
+															id={`project-${project.id}`}
+															checked={selectedProjects.includes(project.id)}
+															onCheckedChange={() => toggleProject(project.id)}
+														/>
+														<label
+															htmlFor={`project-${project.id}`}
+															className="cursor-pointer text-sm"
+														>
+															{project.path_with_namespace}
+														</label>
+													</div>
+												),
+											)
+										)}
+									</div>
+
+									{selectedProjects.length > 0 && (
+										<div className="space-y-3 mt-8">
+											<label className="text-sm font-medium">
+												{t('Branches to ignore in reports')}
+											</label>
+											<div className="space-y-3 mt-2">
+												{selectedProjects.map((projectId) => {
+													const project = (projects as any[])?.find(
+														(p: any) => p.id === projectId,
+													);
+													return (
+														<ProjectBranchCard
+															key={projectId}
+															integrationId={integration.id}
+															projectId={projectId}
+															projectName={
+																project?.path_with_namespace ??
+																`Project ${projectId}`
+															}
+															selectedBranches={
+																selectedBranchesByProject[String(projectId)] ||
+																[]
+															}
+															onToggleBranch={(branchName) =>
+																toggleBranch(projectId, branchName)
+															}
+															t={t}
+														/>
+													);
+												})}
+											</div>
+										</div>
+									)}
+								</>
 							)}
 						</>
 					)}
