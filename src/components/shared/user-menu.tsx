@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
-import { Link } from '@/lib/i18n/navigation'
+import { Link } from '@/i18n/navigation'
 
 export function UserMenu() {
   const t = useTranslations()

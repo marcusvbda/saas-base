@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { useRouter } from '@/lib/i18n/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { AppShell } from '@/components/layouts/app-shell'
 import { trpc } from '@/lib/trpc/client'
 import {

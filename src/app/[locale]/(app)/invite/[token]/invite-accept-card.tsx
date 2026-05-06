@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { useRouter } from '@/lib/i18n/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { trpc } from '@/lib/trpc/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

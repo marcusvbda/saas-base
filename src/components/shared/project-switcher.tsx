@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useRouter } from '@/lib/i18n/navigation'
+import { useRouter } from '@/i18n/navigation'
 
 interface Project {
   id: string

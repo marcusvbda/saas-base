@@ -9,8 +9,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { usePathname, useRouter } from '@/lib/i18n/navigation'
-import { routing } from '@/lib/i18n/config'
+import { usePathname, useRouter } from '@/i18n/navigation'
+import { routing } from '@/i18n/routing'
 
 const LOCALE_LABELS: Record<string, string> = {
   en: 'English',
