@@ -1,0 +1,119 @@
+{
+  "common": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "loading": "Carregando...",
+    "error": "Algo deu errado",
+    "back": "Voltar",
+    "confirm": "Confirmar",
+    "actions": "Ações"
+  },
+  "nav": {
+    "dashboard": "Painel",
+    "projects": "Projetos",
+    "members": "Membros",
+    "settings": "Configurações",
+    "billing": "Cobrança",
+    "profile": "Perfil"
+  },
+  "auth": {
+    "signIn": "Entrar",
+    "signUp": "Cadastrar",
+    "signOut": "Sair",
+    "signInDescription": "Digite suas credenciais para acessar sua conta",
+    "signUpDescription": "Crie uma conta para começar",
+    "password": "Senha",
+    "name": "Nome de exibição",
+    "noAccount": "Não tem uma conta?",
+    "hasAccount": "Já tem uma conta?"
+  },
+  "onboarding": {
+    "title": "Crie seu primeiro projeto",
+    "projectNameLabel": "Nome do projeto",
+    "projectNamePlaceholder": "Meu Projeto Incrível",
+    "submit": "Criar projeto",
+    "success": "Projeto criado com sucesso"
+  },
+  "projects": {
+    "create": "Novo projeto",
+    "delete": "Excluir projeto",
+    "deleteConfirm": "Tem certeza que deseja excluir este projeto? Esta ação não pode ser desfeita.",
+    "deleteTypePrompt": "Digite o nome do projeto para confirmar a exclusão",
+    "settings": "Configurações do projeto",
+    "emptyTitle": "Nenhum projeto ainda",
+    "emptyDescription": "Crie seu primeiro projeto para começar",
+    "namePlaceholder": "Nome do projeto",
+    "slugLabel": "Slug"
+  },
+  "members": {
+    "invite": "Convidar membro",
+    "remove": "Remover membro",
+    "leaveProject": "Sair do projeto",
+    "pendingInvites": "Convites pendentes",
+    "emptyTitle": "Nenhum membro ainda",
+    "emptyDescription": "Convide os membros da sua equipe para colaborar",
+    "inviteEmailLabel": "Endereço de e-mail",
+    "inviteRoleLabel": "Função",
+    "roles": {
+      "OWNER": "Proprietário",
+      "EDITOR": "Editor",
+      "VIEWER": "Visualizador"
+    },
+    "joined": "Entrou em",
+    "expires": "Expira em"
+  },
+  "billing": {
+    "currentPlan": "Plano atual",
+    "upgrade": "Fazer upgrade",
+    "manageBilling": "Gerenciar cobrança",
+    "plansTitle": "Escolha seu plano",
+    "currentPlanBadge": "Plano atual",
+    "upgradeSuccess": "Assinatura atualizada com sucesso"
+  },
+  "plans": {
+    "free": {
+      "name": "Gratuito",
+      "description": "Perfeito para indivíduos e projetos pequenos",
+      "feature1": "Até 1 projeto",
+      "feature2": "Até 3 membros",
+      "feature3": "Recursos básicos"
+    },
+    "pro": {
+      "name": "Pro",
+      "description": "Para equipes e negócios em crescimento",
+      "feature1": "Até 10 projetos",
+      "feature2": "Até 15 membros por projeto",
+      "feature3": "Exportar dados",
+      "feature4": "Suporte prioritário"
+    },
+    "business": {
+      "name": "Business",
+      "description": "Para empresas com necessidades ilimitadas",
+      "feature1": "Projetos ilimitados",
+      "feature2": "Membros ilimitados",
+      "feature3": "Exportar dados",
+      "feature4": "Acesso à API",
+      "feature5": "Suporte dedicado"
+    }
+  },
+  "limits": {
+    "projects": "{current} / {max} projetos usados",
+    "members": "{current} / {max} membros usados"
+  },
+  "errors": {
+    "unauthorized": "Você precisa estar autenticado para acessar isso",
+    "forbidden": "Você não tem permissão para realizar esta ação",
+    "notFound": "O recurso solicitado não foi encontrado",
+    "inviteExpired": "Este convite expirou ou é inválido",
+    "alreadyMember": "Você já é membro deste projeto",
+    "limitReached": "Você atingiu o limite do seu plano atual",
+    "lastOwner": "Não é possível remover o último proprietário do projeto",
+    "cannotRemoveSelf": "Você não pode se remover do projeto"
+  },
+  "gates": {
+    "upgradeRequired": "Upgrade necessário",
+    "limitReached": "Você atingiu o limite do seu plano",
+    "upgradeCta": "Fazer upgrade"
+  }
+}
