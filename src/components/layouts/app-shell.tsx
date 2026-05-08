@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
-import { Menu } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Sidebar } from './sidebar'
-import { TopBar } from './top-bar'
+import { Separator } from '@/components/ui/separator'
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from '@/components/ui/sidebar'
+import { LocaleSwitcher } from '@/components/shared/locale-switcher'
+import { ThemeToggle } from '@/components/shared/theme-toggle'
+import { AppSidebar } from './app-sidebar'
 import type { Plan } from '@prisma/client'
 
 interface AppShellProps {
@@ -15,7 +18,6 @@ interface AppShellProps {
   plan: Plan
   canCreateMore: boolean
   onCreateProject: () => void
-  pageTitle?: string
 }
 
 export function AppShell({
@@ -25,45 +27,31 @@ export function AppShell({
   plan,
   canCreateMore,
   onCreateProject,
-  pageTitle,
 }: AppShellProps) {
-  const [mobileOpen, setMobileOpen] = useState(false)
-
-  const sidebarProps = { projects, activeProjectId, plan, canCreateMore, onCreateProject }
-
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Desktop sidebar */}
-      <div className="hidden md:flex md:flex-col md:shrink-0">
-        <Sidebar {...sidebarProps} />
-      </div>
-
-      {/* Mobile sidebar via Sheet */}
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="p-0 w-60">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Navigation</SheetTitle>
-          </SheetHeader>
-          <Sidebar {...sidebarProps} />
-        </SheetContent>
-      </Sheet>
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="md:hidden flex items-center gap-2 border-b px-4 h-14">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
+    <SidebarProvider>
+      <AppSidebar
+        projects={projects}
+        activeProjectId={activeProjectId}
+        plan={plan}
+        canCreateMore={canCreateMore}
+        onCreateProject={onCreateProject}
+      />
+      <SidebarInset>
+        <header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
+          <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
+            <div className="ml-auto flex items-center gap-1">
+              <LocaleSwitcher />
+              <ThemeToggle />
+            </div>
+          </div>
+        </header>
+        <div className="@container/main flex flex-1 flex-col gap-4 p-4 lg:p-6">
+          {children}
         </div>
-        <div className="hidden md:block">
-          <TopBar title={pageTitle} />
-        </div>
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

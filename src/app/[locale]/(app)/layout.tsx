@@ -59,7 +59,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       setCreateOpen(false)
       reset()
       toast.success(t('onboarding.success'))
-      router.push(`/projects/${project.id}`)
+      router.push('/')
     },
     onError: (err) => toast.error(err.message),
   })
