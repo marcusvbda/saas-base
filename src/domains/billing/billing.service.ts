@@ -39,6 +39,7 @@ export async function createCheckoutSession(
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
+    payment_method_types: ['card'],
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${env.NEXT_PUBLIC_APP_URL}/settings/billing?success=true`,
@@ -46,8 +47,6 @@ export async function createCheckoutSession(
     client_reference_id: userId,
     metadata: { userId },
     allow_promotion_codes: true,
-    tax_id_collection: { enabled: true },
-    automatic_tax: { enabled: true },
   })
 
   if (!session.url) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })

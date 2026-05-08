@@ -127,7 +127,7 @@ export default function BillingPage() {
 								{!isCurrent && plan.priceId && (
 									<Button
 										size="sm"
-										className="w-full"
+										className="w-full mt-auto"
 										onClick={() =>
 											checkout.mutate({ plan: plan.key as 'PRO' | 'BUSINESS' })
 										}

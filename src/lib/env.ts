@@ -14,8 +14,8 @@ const schema = z.object({
   STRIPE_SECRET_KEY:                   z.string().startsWith('sk_'),
   STRIPE_WEBHOOK_SECRET:               z.string().startsWith('whsec_'),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:  z.string().startsWith('pk_'),
-  STRIPE_PRICE_PRO_USD:                z.string().min(1),
-  STRIPE_PRICE_BUSINESS_USD:           z.string().min(1),
+  STRIPE_PRICE_PRO_USD:                z.string().startsWith('price_'),
+  STRIPE_PRICE_BUSINESS_USD:           z.string().startsWith('price_'),
 })
 
 export const env = schema.parse(process.env)
