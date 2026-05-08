@@ -1,113 +1,139 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Link } from '@/i18n/navigation';
+import { useState } from 'react'
+import { useTranslations } from 'next-intl'
+import { useRouter } from '@/i18n/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/password-input'
+import { Link } from '@/i18n/navigation'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+
+const schema = z
+  .object({
+    name: z.string().min(1).max(100),
+    email: z.email(),
+    password: z.string().min(6),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'passwordMismatch',
+  })
+type FormValues = z.infer<typeof schema>
 
 export default function SignUpPage() {
-	const t = useTranslations();
-	const router = useRouter();
-	const [email, setEmail] = useState('');
-	const [password, setPassword] = useState('');
-	const [name, setName] = useState('');
-	const [error, setError] = useState<string | null>(null);
-	const [loading, setLoading] = useState(false);
+  const t = useTranslations()
+  const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
 
-	async function handleSubmit(e: React.FormEvent) {
-		e.preventDefault();
-		setError(null);
-		setLoading(true);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
-		const supabase = createClient();
-		const { error: authError } = await supabase.auth.signUp({
-			email,
-			password,
-			options: {
-				data: { full_name: name },
-				emailRedirectTo: `${location.origin}/api/auth/callback`,
-			},
-		});
+  async function onSubmit(values: FormValues) {
+    setError(null)
+    const supabase = createClient()
+    const { error: authError } = await supabase.auth.signUp({
+      email: values.email,
+      password: values.password,
+      options: {
+        data: { full_name: values.name },
+        emailRedirectTo: `${location.origin}/api/auth/callback`,
+      },
+    })
+    if (authError) {
+      setError(authError.message)
+      return
+    }
+    router.push('/confirm-email')
+  }
 
-		if (authError) {
-			setError(authError.message);
-			setLoading(false);
-			return;
-		}
-
-		router.push('/');
-		router.refresh();
-	}
-
-	return (
-		<div className="flex min-h-screen items-center justify-center p-4">
-			<div className="w-full max-w-sm space-y-6">
-				<div className="space-y-1 text-center">
-					<h1 className="text-2xl font-semibold tracking-tight">
-						{t('auth.signUp')}
-					</h1>
-					<p className="text-sm text-muted-foreground">
-						{t('auth.signUpDescription')}
-					</p>
-				</div>
-
-				<form onSubmit={handleSubmit} className="space-y-4">
-					<div className="space-y-1.5">
-						<Label htmlFor="name">{t('auth.name')}</Label>
-						<Input
-							id="name"
-							type="text"
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							required
-							autoComplete="name"
-						/>
-					</div>
-					<div className="space-y-1.5">
-						<Label htmlFor="email">Email</Label>
-						<Input
-							id="email"
-							type="email"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							required
-							autoComplete="email"
-						/>
-					</div>
-					<div className="space-y-1.5">
-						<Label htmlFor="password">{t('auth.password')}</Label>
-						<Input
-							id="password"
-							type="password"
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							required
-							minLength={6}
-							autoComplete="new-password"
-						/>
-					</div>
-
-					{error && <p className="text-sm text-destructive">{error}</p>}
-
-					<Button type="submit" className="w-full" disabled={loading}>
-						{loading ? t('common.loading') : t('auth.signUp')}
-					</Button>
-				</form>
-
-				<p className="text-center text-sm text-muted-foreground">
-					{t('auth.hasAccount')}{' '}
-					<Link
-						href="/sign-in"
-						className="underline underline-offset-4 hover:text-foreground"
-					>
-						{t('auth.signIn')}
-					</Link>
-				</p>
-			</div>
-		</div>
-	);
+  return (
+    <Card>
+      <CardHeader className="text-center">
+        <CardTitle className="text-xl">{t('auth.signUp')}</CardTitle>
+        <CardDescription>{t('auth.signUpDescription')}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <div className="grid gap-6">
+            <div className="grid gap-2">
+              <Label htmlFor="name">{t('auth.name')}</Label>
+              <Input
+                id="name"
+                type="text"
+                {...register('name')}
+                autoComplete="name"
+              />
+              {errors.name && (
+                <p className="text-sm text-destructive">{errors.name.message}</p>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                {...register('email')}
+                autoComplete="email"
+              />
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email.message}</p>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password">{t('auth.password')}</Label>
+              <PasswordInput
+                id="password"
+                {...register('password')}
+                autoComplete="new-password"
+              />
+              {errors.password && (
+                <p className="text-sm text-destructive">{errors.password.message}</p>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="confirmPassword">{t('auth.confirmPassword')}</Label>
+              <PasswordInput
+                id="confirmPassword"
+                {...register('confirmPassword')}
+                autoComplete="new-password"
+              />
+              {errors.confirmPassword && (
+                <p className="text-sm text-destructive">
+                  {errors.confirmPassword.message === 'passwordMismatch'
+                    ? t('auth.passwordMismatch')
+                    : errors.confirmPassword.message}
+                </p>
+              )}
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? t('common.loading') : t('auth.signUp')}
+            </Button>
+            <div className="text-center text-sm">
+              {t('auth.hasAccount')}{' '}
+              <Link href="/sign-in" className="underline underline-offset-4">
+                {t('auth.signIn')}
+              </Link>
+            </div>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
 }

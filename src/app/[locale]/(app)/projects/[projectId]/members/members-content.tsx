@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useForm, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { format } from 'date-fns'
 import { UserPlus, Users, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -27,6 +30,7 @@ import {
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { UpgradePrompt } from '@/components/shared/upgrade-prompt'
 import { Separator } from '@/components/ui/separator'
+
 type Role = 'OWNER' | 'EDITOR' | 'VIEWER'
 
 interface Member {
@@ -53,6 +57,12 @@ interface MembersContentProps {
   canInvite: boolean
 }
 
+const inviteSchema = z.object({
+  email: z.email(),
+  role: z.enum(['EDITOR', 'VIEWER']),
+})
+type InviteValues = z.infer<typeof inviteSchema>
+
 export function MembersContent({
   projectId,
   members,
@@ -65,18 +75,27 @@ export function MembersContent({
   const utils = trpc.useUtils()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [showUpgrade, setShowUpgrade] = useState(false)
-  const [email, setEmail] = useState('')
-  const [role, setRole] = useState<'EDITOR' | 'VIEWER'>('VIEWER')
 
   const isOwner = myRole === 'OWNER'
   const isEditor = myRole === 'EDITOR' || isOwner
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors },
+  } = useForm<InviteValues>({
+    resolver: zodResolver(inviteSchema),
+    defaultValues: { role: 'VIEWER' },
+  })
 
   const invite = trpc.invites.create.useMutation({
     onSuccess: () => {
       toast.success(t('members.invite'))
       utils.invites.list.invalidate({ projectId })
       setInviteOpen(false)
-      setEmail('')
+      reset()
     },
     onError: (err) => toast.error(err.message),
   })
@@ -99,6 +118,10 @@ export function MembersContent({
   function handleInviteClick() {
     if (!canInvite) { setShowUpgrade(true); return }
     setInviteOpen(true)
+  }
+
+  function onSubmit(values: InviteValues) {
+    invite.mutate({ projectId, email: values.email, role: values.role })
   }
 
   return (
@@ -199,41 +222,43 @@ export function MembersContent({
         </div>
       )}
 
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+      <Dialog open={inviteOpen} onOpenChange={(open) => { if (!open) reset(); setInviteOpen(open) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('members.invite')}</DialogTitle>
           </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              invite.mutate({ projectId, email, role })
-            }}
-            className="space-y-4"
-          >
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-1.5">
-              <Label>{t('members.inviteEmailLabel')}</Label>
+              <Label htmlFor="invite-email">{t('members.inviteEmailLabel')}</Label>
               <Input
+                id="invite-email"
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                {...register('email')}
               />
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email.message}</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>{t('members.inviteRoleLabel')}</Label>
-              <Select value={role} onValueChange={(v) => setRole(v as 'EDITOR' | 'VIEWER')}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="EDITOR">{t('members.roles.EDITOR')}</SelectItem>
-                  <SelectItem value="VIEWER">{t('members.roles.VIEWER')}</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                control={control}
+                name="role"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EDITOR">{t('members.roles.EDITOR')}</SelectItem>
+                      <SelectItem value="VIEWER">{t('members.roles.VIEWER')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => { reset(); setInviteOpen(false) }}>
                 {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={invite.isPending}>

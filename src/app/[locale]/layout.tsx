@@ -25,7 +25,7 @@ export default async function LocaleLayout({
   const messages = await getMessages()
   const cookieStore = await cookies()
   const themeCookie = cookieStore.get('theme')?.value
-  const defaultTheme = themeCookie === 'dark' || themeCookie === 'light' ? themeCookie : 'system'
+  const defaultTheme = themeCookie === 'dark' || themeCookie === 'light' ? themeCookie : 'light'
 
   return (
     <html lang={locale} suppressHydrationWarning className={geist.variable}>

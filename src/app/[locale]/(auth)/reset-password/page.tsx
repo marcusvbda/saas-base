@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Link } from '@/i18n/navigation'
@@ -20,16 +19,20 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 
-const schema = z.object({
-  email: z.email(),
-  password: z.string().min(1),
-})
+const schema = z
+  .object({
+    password: z.string().min(6),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'passwordMismatch',
+  })
 type FormValues = z.infer<typeof schema>
 
-export default function SignInPage() {
+export default function ResetPasswordPage() {
   const t = useTranslations()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
 
   const {
@@ -41,67 +44,56 @@ export default function SignInPage() {
   async function onSubmit(values: FormValues) {
     setError(null)
     const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: values.email,
-      password: values.password,
-    })
+    const { error: authError } = await supabase.auth.updateUser({ password: values.password })
     if (authError) {
       setError(authError.message)
       return
     }
-    const next = searchParams.get('next') ?? '/'
-    router.push(next)
-    router.refresh()
+    router.push('/sign-in')
   }
 
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-xl">{t('auth.signIn')}</CardTitle>
-        <CardDescription>{t('auth.signInDescription')}</CardDescription>
+        <CardTitle className="text-xl">{t('auth.resetPassword')}</CardTitle>
+        <CardDescription>{t('auth.resetPasswordDescription')}</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid gap-6">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                {...register('email')}
-                autoComplete="email"
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">{t('auth.password')}</Label>
-                <Link
-                  href="/forgot-password"
-                  className="ml-auto text-sm underline-offset-4 hover:underline"
-                >
-                  {t('auth.forgotPassword')}
-                </Link>
-              </div>
+              <Label htmlFor="password">{t('auth.newPassword')}</Label>
               <PasswordInput
                 id="password"
                 {...register('password')}
-                autoComplete="current-password"
+                autoComplete="new-password"
               />
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="confirmPassword">{t('auth.confirmPassword')}</Label>
+              <PasswordInput
+                id="confirmPassword"
+                {...register('confirmPassword')}
+                autoComplete="new-password"
+              />
+              {errors.confirmPassword && (
+                <p className="text-sm text-destructive">
+                  {errors.confirmPassword.message === 'passwordMismatch'
+                    ? t('auth.passwordMismatch')
+                    : errors.confirmPassword.message}
+                </p>
+              )}
+            </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? t('common.loading') : t('auth.signIn')}
+              {isSubmitting ? t('common.loading') : t('auth.resetPassword')}
             </Button>
             <div className="text-center text-sm">
-              {t('auth.noAccount')}{' '}
-              <Link href="/sign-up" className="underline underline-offset-4">
-                {t('auth.signUp')}
+              <Link href="/sign-in" className="underline underline-offset-4">
+                {t('auth.backToSignIn')}
               </Link>
             </div>
           </div>

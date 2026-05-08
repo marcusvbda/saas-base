@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { format } from 'date-fns'
 import { Plus, Users } from 'lucide-react'
 import { toast } from 'sonner'
@@ -37,6 +40,9 @@ interface DashboardContentProps {
   plan: Plan
 }
 
+const schema = z.object({ name: z.string().min(2).max(50) })
+type FormValues = z.infer<typeof schema>
+
 export function DashboardContent({
   projects,
   activeProjectId,
@@ -47,7 +53,13 @@ export function DashboardContent({
   const router = useRouter()
   const [createOpen, setCreateOpen] = useState(false)
   const [showUpgrade, setShowUpgrade] = useState(false)
-  const [name, setName] = useState('')
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
   const utils = trpc.useUtils()
   const create = trpc.projects.create.useMutation({
@@ -56,7 +68,7 @@ export function DashboardContent({
       toast.success(t('onboarding.success'))
       utils.projects.list.invalidate()
       setCreateOpen(false)
-      setName('')
+      reset()
       router.push(`/projects/${project.id}`)
     },
     onError: (err) => toast.error(err.message),
@@ -65,6 +77,10 @@ export function DashboardContent({
   function handleNewProject() {
     if (!canCreateMore) { setShowUpgrade(true); return }
     setCreateOpen(true)
+  }
+
+  function onSubmit(values: FormValues) {
+    create.mutate({ name: values.name })
   }
 
   return (
@@ -114,34 +130,28 @@ export function DashboardContent({
         })}
       </div>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={(open) => { if (!open) reset(); setCreateOpen(open) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('projects.create')}</DialogTitle>
           </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              create.mutate({ name: name.trim() })
-            }}
-            className="space-y-4"
-          >
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-1.5">
-              <Label>{t('onboarding.projectNameLabel')}</Label>
+              <Label htmlFor="project-name">{t('onboarding.projectNameLabel')}</Label>
               <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                id="project-name"
+                {...register('name')}
                 placeholder={t('onboarding.projectNamePlaceholder')}
-                minLength={2}
-                maxLength={50}
-                required
               />
+              {errors.name && (
+                <p className="text-sm text-destructive">{errors.name.message}</p>
+              )}
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => { reset(); setCreateOpen(false) }}>
                 {t('common.cancel')}
               </Button>
-              <Button type="submit" disabled={create.isPending || name.trim().length < 2}>
+              <Button type="submit" disabled={create.isPending}>
                 {create.isPending ? t('common.loading') : t('projects.create')}
               </Button>
             </div>

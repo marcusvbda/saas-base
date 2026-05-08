@@ -5,7 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 const intlMiddleware = createMiddleware(routing);
 
-const PUBLIC_PATHS = ['/sign-in', '/sign-up', '/invite', '/auth'];
+const PUBLIC_PATHS = ['/sign-in', '/sign-up', '/invite', '/auth', '/forgot-password', '/reset-password', '/confirm-email'];
 const ONBOARDING_PATH = '/onboarding';
 
 function stripLocale(pathname: string): string {
@@ -66,10 +66,10 @@ export default async function middleware(req: NextRequest) {
 		return NextResponse.redirect(url);
 	}
 
-	// Authenticated + app route + no project cookie → go to onboarding
+	// Authenticated + app route + no project cookie → init project selection
 	if (!isOnboarding && !hasActiveProject) {
 		const url = req.nextUrl.clone();
-		url.pathname = `/${locale}/onboarding`;
+		url.pathname = '/api/auth/init';
 		return NextResponse.redirect(url);
 	}
 
